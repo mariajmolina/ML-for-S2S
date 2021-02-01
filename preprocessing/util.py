@@ -17,7 +17,7 @@ def cesm2_dictionary(variable, parent_directory, ensemble, start='1999-01-01', e
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
     """
     # date array
-    d1 = pd.date_range(start_date, end_date, freq=starts)
+    d1 = pd.date_range(start=start, end=end, freq=freq)
     # generate dictionary
     matches = {}
     for num, (yr, mo, dy) in enumerate(zip(d1.strftime("%Y"), d1.strftime("%m"), d1.strftime("%d"))):
@@ -42,7 +42,7 @@ def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='20
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
     """
     # date array
-    d1 = pd.date_range(start_date, end_date, freq=starts)
+    d1 = pd.date_range(start=start, end=end, freq=freq)
     # generate folders for new variable
     if os.path.exists(parent_directory):
         for yr, mo in product(np.unique(d1.strftime("%Y")), np.unique(d1.strftime("%m"))):
