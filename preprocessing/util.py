@@ -36,7 +36,7 @@ def month_num_to_string(number):
 
 def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
-    Create folders to place new variable files in.
+    Create folders to place new variable files that were not preprocessed p1 (or other SubX priority).
     
     Args:
         variable (str): Name of variable (e.g., 'sst').
@@ -69,7 +69,7 @@ def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='20
 
 def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
-    Create CESM2 variable files. 
+    Create CESM2 variable files that were not preprocessed p1 (or other SubX priority) variables.
     Here we extract variable from daily file containing many variables to reduce memory usage.
     
     Args:
@@ -98,7 +98,7 @@ def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01',
 
 def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
-    Create list of variable files for use in ML training.
+    Create list of variable files.
     
     Args:
         variable (str): Name of variable (e.g., 'zg_200').
@@ -141,3 +141,63 @@ def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end
                             matches.append(np.nan)
                 
     return matches
+
+def cesm2_hindcast_climatology(filelist, variable):
+    """
+    Create CESM2 hindcast climatology. Outputs array (lon, lat, lead, 365).
+    Translated from MATLAB (provided by Anne Sasha Glanville, NCAR).
+    
+    Args:
+        filelist (list of str): List of file names and directory locations.
+        variable (str): Name of variable (e.g., 'zg_200').
+    """
+    dateStrPrevious = '01jan1000'        # just a random old date that doesn't exist
+    index_help = 0                       # set blah to 0 for the very first file date
+    char_1 = "cesm2cam6v2_"              # date string help
+    char_2 = "_00z_d01_d46" 
+
+    # loop through list of hindcast files
+    for tline in filelist:
+
+        fil = tline
+        dateStr = fil[fil.find(char_1)+12 : fil.find(char_2)]
+        starttime = pd.to_datetime(dateStr)
+        doy = starttime.dayofyear
+
+        if (starttime.year % 4) == 0 and starttime.month > 2:
+            doy = doy - 1
+
+        var = xr.open_dataset(fil)[variable].transpose('lon','lat','time').values      # (lon,lat,lead); load file and grab variable
+        varChosen = var
+
+        if varChosen.shape[2] != 46:
+            varChosen = np.ones((varChosen.shape)) * np.nan
+
+        if index_help == 0:
+            climBin = np.zeros((
+                varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], 365))      # (lon, lat, lead, 365 days in year)
+            climBinDays = np.zeros((
+                varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], 365))
+            lon = xr.open_dataset(fil)[variable].coords['lon'].values                  # grab lon and lat arrays
+            lat = xr.open_dataset(fil)[variable].coords['lat'].values
+
+        if dateStr == dateStrPrevious:                           # if dates match, means you are on next ensemble member
+            x = x + 1                                            # to compute ensemble mean
+            ensAvg = (ensAvg * (x - 1) + varChosen) / x
+        else:
+            if index_help != 0:                 # if dates don't match, but make sure we are past the first file and ensAvg has data
+                if np.all(ensAvg == 0):          
+                    climBin[:,:,:,doyPrevious] = climBin[:,:,:,doyPrevious] + ensAvg
+                    climBinDays[:,:,:,doyPrevious] = climBinDays[:,:,:,doyPrevious] + 1
+            ensAvg = varChosen
+            x = 1
+
+        dateStrPrevious = dateStr
+        doyPrevious = doy
+        index_help = index_help+1 
+
+    climBin[:,:,:,doyPrevious] = climBin[:,:,:,doyPrevious] + ensAvg
+    climBinDays[:,:,:,doyPrevious] = climBinDays[:,:,:,doyPrevious] + 1
+    clim = climBin / climBinDays                                           # Final climatology (sum/n)
+
+    return clim
