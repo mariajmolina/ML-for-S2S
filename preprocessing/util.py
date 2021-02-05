@@ -96,14 +96,14 @@ def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01',
                 
     return
 
-def cesm2_dictionary(variable, parent_directory, ensemble, start='1999-01-01', end='2019-12-31', freq='W-MON'):
+def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
-    Create dictionary of variable files for use in ML training.
+    Create list of variable files for use in ML training.
     
     Args:
         variable (str): Name of variable (e.g., 'zg_200').
         parent_directory (str): Directory where files are located (e.g., '/glade/scratch/$USER/s2s/').
-        ensemble (str): Two digit ensemble member of hindcast (e.g., '09').
+        ensemble (str or list of str): Two digit ensemble member of hindcast (e.g., '09') or list (e.g., ['00', '01']).
         start (str): Start of hindcasts. Defaults to '1999-01-01' for CESM2.
         end (str): End of hindcasts. Defaults to '2019-12-31' for CESM2.
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
@@ -111,19 +111,33 @@ def cesm2_dictionary(variable, parent_directory, ensemble, start='1999-01-01', e
     # date array
     d1 = pd.date_range(start=start, end=end, freq=freq)
     
-    # generate dictionary
-    matches = {}
+    # generate list
+    matches = []
     for num, (yr, mo, dy) in enumerate(zip(d1.strftime("%Y"), d1.strftime("%m"), d1.strftime("%d"))):
         
         for root, dirnames, filenames in os.walk(f'{parent_directory}CESM2/{variable}/{yr}/{mo}/'):
             
-            for filename in fnmatch.filter(filenames, f'*_cesm2cam6v2_{dy}*_m{ensemble}.nc'):
-                thefile = os.path.join(root, filename)
+            if isinstance(ensemble, str):
+                for filename in fnmatch.filter(filenames, f'*_cesm2cam6v2_{dy}*_m{ensemble}.nc'):
+
+                    thefile = os.path.join(root, filename)
+
+                    if os.access(thefile, os.R_OK):
+                        matches.append(thefile)
+
+                    if not os.access(thefile, os.R_OK):
+                        matches.append(np.nan)
+                        
+            if isinstance(ensemble, list):
+                for ens in ensemble:
+                    for filename in fnmatch.filter(filenames, f'*_cesm2cam6v2_{dy}*_m{ens}.nc'):
+                        
+                        thefile = os.path.join(root, filename)
+
+                        if os.access(thefile, os.R_OK):
+                            matches.append(thefile)
+
+                        if not os.access(thefile, os.R_OK):
+                            matches.append(np.nan)
                 
-                if os.access(thefile, os.R_OK):
-                    matches[num] = thefile
-                    
-                if not os.access(thefile, os.R_OK):
-                    matches[num] = np.nan
-                    
     return matches
