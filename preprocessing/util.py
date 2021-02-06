@@ -202,8 +202,8 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         else:
             if index_help != 0:                 # if dates don't match, but make sure we are past the first file and ensAvg has data
                 if not np.all(ensAvg == 0):          
-                    climBin[:,:,:,doyPrevious] = climBin[:,:,:,doyPrevious] + ensAvg
-                    climBinDays[:,:,:,doyPrevious] = climBinDays[:,:,:,doyPrevious] + 1
+                    climBin[:,:,:,doyPrevious - 1] = climBin[:,:,:,doyPrevious - 1] + ensAvg      # doyPrevious - 1 bc 0-based index
+                    climBinDays[:,:,:,doyPrevious - 1] = climBinDays[:,:,:,doyPrevious - 1] + 1
                     grab_ensembles = False
             ensAvg = varChosen
             x = 1
@@ -212,11 +212,11 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         doyPrevious = doy
         index_help += 1
 
-    climBin[:,:,:,doyPrevious] = climBin[:,:,:,doyPrevious] + ensAvg
-    climBinDays[:,:,:,doyPrevious] = climBinDays[:,:,:,doyPrevious] + 1
+    climBin[:,:,:,doyPrevious - 1] = climBin[:,:,:,doyPrevious - 1] + ensAvg
+    climBinDays[:,:,:,doyPrevious - 1] = climBinDays[:,:,:,doyPrevious - 1] + 1
     clim = climBin / climBinDays                                                         # Final climatology (sum/n)
 
-    first_date = filelist[0][filelist[0].find(char_1)+12:filelist[0].find(char_2)]       #date strings for attrs
+    first_date = filelist[0][filelist[0].find(char_1)+12:filelist[0].find(char_2)]       # date strings for attrs
     final_date = filelist[-1][filelist[-1].find(char_1)+12:filelist[-1].find(char_2)]
 
     data_assemble = xr.Dataset({
