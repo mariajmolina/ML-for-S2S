@@ -142,7 +142,7 @@ def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end
                 
     return matches
 
-def cesm2_hindcast_climatology(filelist, variable):
+def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, parent_directory=None):
     """
     Create CESM2 hindcast climatology. Outputs array (lon, lat, lead, 365).
     Translated from MATLAB (provided by Anne Sasha Glanville, NCAR).
@@ -150,11 +150,21 @@ def cesm2_hindcast_climatology(filelist, variable):
     Args:
         filelist (list of str): List of file names and directory locations.
         variable (str): Name of variable (e.g., 'zg_200').
+        save (boolean): Set to True if want to save climatology as netCDF. Defaults to False.
+        author (str): Author of file. Defaults to None.
+        parent_directory (str): Directory where files are located (e.g., '/glade/scratch/$USER/s2s/').
+                                Defaults to None.
     """
+    if save:
+        assert isinstance(author, str), "Please set author for file saving."
+    if save:
+        assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
+    
     dateStrPrevious = '01jan1000'        # just a random old date that doesn't exist
-    index_help = 0                       # set blah to 0 for the very first file date
+    index_help = 0                       # set to 0 for the very first file date
     char_1 = "cesm2cam6v2_"              # date string help
     char_2 = "_00z_d01_d46" 
+    grab_ensembles = True
 
     # loop through list of hindcast files
     for tline in filelist:
@@ -180,24 +190,52 @@ def cesm2_hindcast_climatology(filelist, variable):
                 varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], 365))
             lon = xr.open_dataset(fil)[variable].coords['lon'].values                  # grab lon and lat arrays
             lat = xr.open_dataset(fil)[variable].coords['lat'].values
+            if grab_ensembles:
+                all_ensembles = []
+                all_ensembles.append(tline[tline.find('_m')+2:tline.find('_m')+4])     # saving ensemble members for attrs
 
         if dateStr == dateStrPrevious:                           # if dates match, means you are on next ensemble member
-            x = x + 1                                            # to compute ensemble mean
+            x += 1                                               # to compute ensemble mean
             ensAvg = (ensAvg * (x - 1) + varChosen) / x
+            if grab_ensembles:
+                all_ensembles.append(tline[tline.find('_m')+2:tline.find('_m')+4])
         else:
             if index_help != 0:                 # if dates don't match, but make sure we are past the first file and ensAvg has data
-                if np.all(ensAvg == 0):          
+                if not np.all(ensAvg == 0):          
                     climBin[:,:,:,doyPrevious] = climBin[:,:,:,doyPrevious] + ensAvg
                     climBinDays[:,:,:,doyPrevious] = climBinDays[:,:,:,doyPrevious] + 1
+                    grab_ensembles = False
             ensAvg = varChosen
             x = 1
 
         dateStrPrevious = dateStr
         doyPrevious = doy
-        index_help = index_help+1 
+        index_help += 1
 
     climBin[:,:,:,doyPrevious] = climBin[:,:,:,doyPrevious] + ensAvg
     climBinDays[:,:,:,doyPrevious] = climBinDays[:,:,:,doyPrevious] + 1
-    clim = climBin / climBinDays                                           # Final climatology (sum/n)
+    clim = climBin / climBinDays                                                         # Final climatology (sum/n)
 
-    return clim
+    first_date = filelist[0][filelist[0].find(char_1)+12:filelist[0].find(char_2)]       #date strings for attrs
+    final_date = filelist[-1][filelist[-1].find(char_1)+12:filelist[-1].find(char_2)]
+
+    data_assemble = xr.Dataset({
+                         'clim':(['x','y','lead','doy'],clim),
+                        },
+                         coords =
+                        {'lead':(['lead'],np.arange(0,clim.shape[2],1)),
+                         'doy':(['doy'],np.arange(1,clim.shape[3]+1,1)),
+                         'lat':(['y'],lat),
+                         'lon':(['x'],lon)
+                        },
+                        attrs = 
+                        {'File Author' : author,
+                         'Ensembles' : all_ensembles,
+                         'First Date (lead=0)' : pd.to_datetime(first_date),
+                         'Final Date (lead=0)' : pd.to_datetime(final_date)})
+    
+    if not save:
+        return data_assemble
+
+    if save:
+        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable}_clim_cesm2cam6v2_{len(all_ensembles)}members_s2s_data.nc')
