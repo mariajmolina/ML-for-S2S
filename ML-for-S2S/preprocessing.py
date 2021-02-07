@@ -152,7 +152,7 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         varChosen = var
 
         if varChosen.shape[2] != 46:
-            varChosen = np.ones((varChosen.shape)) * np.nan
+            varChosen = np.ones((ensAvg.shape)) * np.nan
 
         if index_help == 0:
             climBin = np.zeros((
@@ -310,7 +310,7 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
         varChosen = var
 
         if varChosen.shape[2] != 46:
-            varChosen = np.ones((varChosen.shape)) * np.nan
+            varChosen = np.ones((ensAvg.shape)) * np.nan
 
         if index_help == 0:
             dim_last = int(len(filelist)/cesm2_total_ensemble(filelist))
