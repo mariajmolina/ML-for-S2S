@@ -4,35 +4,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from itertools import product
-
-def month_num_to_string(number):
-    """
-    Convert number to three-letter month.
-    
-    Args:
-        number: Month in number format.
-    """
-    m = {
-         1: 'jan',
-         2: 'feb',
-         3: 'mar',
-         4: 'apr',
-         5: 'may',
-         6: 'jun',
-         7: 'jul',
-         8: 'aug',
-         9: 'sep',
-         10: 'oct',
-         11: 'nov',
-         12: 'dec'
-        }
-    
-    try:
-        out = m[int(number)]
-        return out
-    
-    except:
-        raise ValueError('Not a month')
+from util import month_num_to_string
 
 def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
