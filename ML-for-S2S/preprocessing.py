@@ -202,14 +202,14 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
                         attrs = 
                         {'File Author' : author,
                          'Ensembles' : all_ensembles,
-                         'First Date (lead=0)' : pd.to_datetime(first_date),
-                         'Final Date (lead=0)' : pd.to_datetime(final_date)})
+                         'First Date (lead=0)' : str(pd.to_datetime(first_date)),
+                         'Final Date (lead=0)' : str(pd.to_datetime(final_date))})
     
     if not save:
         return data_assemble
 
     if save:
-        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable}_clim_cesm2cam6v2_{len(all_ensembles)}members_s2s_data.nc')
+        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable}_clim_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
 
 def cesm2_total_ensemble(filelist):
     """
@@ -269,7 +269,7 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
     assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
         
     # open climatology file
-    clima = xr.open_dataset(f'{parent_directory}CESM2/{variable}_clim_cesm2cam6v2_{cesm2_total_ensemble(filelist)}members_s2s_data.nc')
+    clima = xr.open_dataset(f'{parent_directory}CESM2/{variable}_clim_cesm2cam6v2_{str(cesm2_total_ensemble(filelist))}members_s2s_data.nc')
     
     # stack 3x's time for smoothing
     climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time')
@@ -316,7 +316,8 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
             dim_last = int(len(filelist)/cesm2_total_ensemble(filelist))
             anom = np.empty((
                 varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], dim_last))
-            starttimeBin = np.empty((dim_last))                                        # (lon, lat, lead, num of forecasts)
+            starttimeBin = np.empty((
+                dim_last), dtype="S10")                                                # (lon, lat, lead, num of forecasts)
             lon = xr.open_dataset(fil)[variable].coords['lon'].values                  # grab lon and lat arrays
             lat = xr.open_dataset(fil)[variable].coords['lat'].values
             if grab_ensembles:
@@ -333,7 +334,7 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
                 if not np.all(ensAvg == 0):
                     forecastCounter += 1
                     anom[:,:,:,forecastCounter - 1] = ensAvg - np.squeeze(climSmooth[:,:,:,doyPrevious - 1])
-                    starttimeBin[forecastCounter - 1] = starttimePrevious
+                    starttimeBin[forecastCounter - 1] = str(starttimePrevious)
                     grab_ensembles = False
             ensAvg = varChosen
             x = 1
@@ -363,11 +364,11 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
                         attrs = 
                         {'File Author' : author,
                          'Ensembles' : all_ensembles,
-                         'First Date (lead=0)' : pd.to_datetime(first_date),
-                         'Final Date (lead=0)' : pd.to_datetime(final_date)})
+                         'First Date (lead=0)' : str(pd.to_datetime(first_date)),
+                         'Final Date (lead=0)' : str(pd.to_datetime(final_date))})
     
     if not save:
         return data_assemble
 
     if save:
-        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable}_anom_cesm2cam6v2_{len(all_ensembles)}members_s2s_data.nc')
+        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
