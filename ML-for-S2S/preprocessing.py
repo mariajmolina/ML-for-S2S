@@ -352,7 +352,7 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
     final_date = filelist[-1][filelist[-1].find(char_1)+12:filelist[-1].find(char_2)]
 
     data_assemble = xr.Dataset({
-                         'clim': (['lon','lat','lead','time'], anom),
+                         'anom': (['lon','lat','lead','time'], anom),
                          'fcst': (['time'], starttimeBin),
                         },
                          coords =
