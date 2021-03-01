@@ -87,6 +87,10 @@ def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end
     matches = []
     for num, (yr, mo, dy) in enumerate(zip(d1.strftime("%Y"), d1.strftime("%m"), d1.strftime("%d"))):
         
+        # leap day handling
+        if mo == '02' and dy == '29':
+            dy = '28'
+        
         for root, dirnames, filenames in os.walk(f'{parent_directory}CESM2/{variable}/{yr}/{mo}/'):
             
             if isinstance(ensemble, str):
@@ -187,11 +191,12 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
     climBinDays[:,:,:,doyPrevious - 1] = climBinDays[:,:,:,doyPrevious - 1] + 1
     clim = climBin / climBinDays                                                         # Final climatology (sum/n)
 
-    first_date = filelist[0][filelist[0].find(char_1)+12:filelist[0].find(char_2)]       # date strings for attrs
-    final_date = filelist[-1][filelist[-1].find(char_1)+12:filelist[-1].find(char_2)]
+    # create dates array
+    dates_array = pd.to_datetime(np.array([file[file.find(char_1)+12:file.find(char_2)] for file in filelist])).unique()
 
     data_assemble = xr.Dataset({
                          'clim': (['lon','lat','lead','time'], clim),
+                         'date_range': (['date_range'], dates_array),
                         },
                          coords =
                         {'lead': (['lead'], np.arange(0,clim.shape[2],1)),
@@ -201,9 +206,7 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
                         },
                         attrs = 
                         {'File Author' : author,
-                         'Ensembles' : all_ensembles,
-                         'First Date (lead=0)' : str(pd.to_datetime(first_date)),
-                         'Final Date (lead=0)' : str(pd.to_datetime(final_date))})
+                         'Ensembles' : all_ensembles})
     
     if not save:
         return data_assemble
@@ -348,12 +351,13 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
     anom[:,:,:,forecastCounter - 1] = ensAvg - np.squeeze(climSmooth[:,:,:,doyPrevious - 1])
     starttimeBin[forecastCounter - 1] = starttimePrevious
 
-    first_date = filelist[0][filelist[0].find(char_1)+12:filelist[0].find(char_2)]       # date strings for attrs
-    final_date = filelist[-1][filelist[-1].find(char_1)+12:filelist[-1].find(char_2)]
+    # create dates array
+    dates_array = pd.to_datetime(np.array([file[file.find(char_1)+12:file.find(char_2)] for file in filelist])).unique()
 
     data_assemble = xr.Dataset({
                          'anom': (['lon','lat','lead','time'], anom),
                          'fcst': (['time'], starttimeBin),
+                         'date_range': (['date_range'], dates_array),
                         },
                          coords =
                         {'lead': (['lead'], np.arange(0,anom.shape[2],1)),
@@ -363,9 +367,7 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
                         },
                         attrs = 
                         {'File Author' : author,
-                         'Ensembles' : all_ensembles,
-                         'First Date (lead=0)' : str(pd.to_datetime(first_date)),
-                         'Final Date (lead=0)' : str(pd.to_datetime(final_date))})
+                         'Ensembles' : all_ensembles})
     
     if not save:
         return data_assemble
