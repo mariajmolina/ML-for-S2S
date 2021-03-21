@@ -68,6 +68,24 @@ def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01',
                 
     return
 
+def create_cesm2_pressure_files(filelist, variable, pressure=300.):
+    """
+    Create CESM2 variable files that were not preprocessed p1 (or other SubX priority) variables.
+    Here we extract variables on a pressure level from files containing many pressure levels 
+    to reduce memory usage.
+    
+    Args:
+        filelist (list of str): List of file names and directory locations.
+        variable (str): Name of variable in lower case (e.g., 'sst').
+        pressure (float): Pressure level. Defaults to ``300.``
+    """
+    # loop through list of hindcast files
+    for fil in filelist:
+        # grab respective pressure level and save out
+        ds = xr.open_dataset(fil).sel(lev_p=pressure).drop('lev_p')
+        ds.to_netcdf(f"{fil.split(variable)[0]}{variable}_temp{fil.split(variable)[1]}{fil.split('/')[-1]}")
+    return
+
 def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
     Create list of variable files.
@@ -139,7 +157,7 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
     dateStrPrevious = '01jan1000'        # just a random old date that doesn't exist
     index_help = 0                       # set to 0 for the very first file date
     char_1 = "cesm2cam6v2_"              # date string help
-    char_2 = "_00z_d01_d46" 
+    char_2 = "_00z_d01_d46"
     grab_ensembles = True
 
     # loop through list of hindcast files
@@ -212,7 +230,7 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         return data_assemble
 
     if save:
-        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable}_clim_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
 
 def cesm2_total_ensemble(filelist):
     """
@@ -272,7 +290,7 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
     assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
         
     # open climatology file
-    clima = xr.open_dataset(f'{parent_directory}CESM2/{variable}_clim_cesm2cam6v2_{str(cesm2_total_ensemble(filelist))}members_s2s_data.nc')
+    clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(cesm2_total_ensemble(filelist))}members_s2s_data.nc')
     
     # stack 3x's time for smoothing
     climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time')
@@ -373,4 +391,4 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
         return data_assemble
 
     if save:
-        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')

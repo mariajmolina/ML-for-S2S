@@ -1,6 +1,8 @@
 import xesmf as xe
 import numpy as np
 import xarray as xr
+from windspharm.standard import VectorWind
+from windspharm.tools import prep_data, recover_data, order_latdim
 
 def month_num_to_string(number):
     """
@@ -31,7 +33,8 @@ def month_num_to_string(number):
     except:
         raise ValueError('Not a month')
 
-def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_weights=False):
+def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_weights=False,
+              lat_coord='lat', lon_coord='lon'):
         """
         Function to regrid netcdf onto different grid.
         Args:
@@ -43,11 +46,11 @@ def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_
             dcoord (float): Distance between lat/lons. Defaults to ``1.0``.
             reuse_weights (boolean): Whether to use precomputed weights to speed up calculation.
                                      Defaults to ``False``.
+            lat_coord (str): Latitude coordinate. Defaults to ``lat``.
+            lon_coord (str): Longitude coordinate. Defaults to ``lon``.
         Returns:
             Regridded file.
         """
-        lat_coord='lat'
-        lon_coord='lon'
         lat0_bnd = int(np.around(ds[lat_coord].min(skipna=True).values))
         lat1_bnd = int(np.around(ds[lat_coord].max(skipna=True).values))
         lon0_bnd = int(np.around(ds[lon_coord].min(skipna=True).values))
@@ -69,3 +72,77 @@ def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_
         dr_out = dr_out.rename(y=lat_coord, x=lon_coord)
         
         return dr_out
+
+def compute_rws(ds_u, ds_v, lat_coord='lat', lon_coord='lon', time_coord='time'):
+    """
+    Computation of absolute vorticity, divergence, and Rossby wave source.
+    Outputs xarray datasets of each.
+    
+    Args:
+        ds_u (xarray data array): Zonal (u) wind (m/s).
+        ds_v (xarray data array): Meridional (v) wind (m/s).
+        lat_coord (str): Latitude coordinate. Defaults to ``lat``.
+        lon_coord (str): Longitude coordinate. Defaults to ``lon``.
+        time_coord (str): Time coordinate. Defaults to ``time``.
+    """
+    # grab lat and lon coords
+    lats = ds_u.coords[lat_coord].values
+    lons = ds_u.coords[lon_coord].values
+    time = ds_u.coords[time_coord].values
+
+    _, wnd_info = prep_data(ds_u.values, 'tyx')
+
+    # reorder dims into lat, lon, time
+    uwnd = ds_u.transpose(lat_coord, lon_coord, time_coord).values
+    vwnd = ds_v.transpose(lat_coord, lon_coord, time_coord).values
+
+    # reorder lats to north-south direction
+    lats, uwnd, vwnd = order_latdim(lats, uwnd, vwnd)
+
+    # initialize wind vector instance
+    w = VectorWind(uwnd, vwnd)
+
+    # Absolute vorticity (sum of relative and planetary vorticity).
+    eta = w.absolutevorticity()
+
+    # Horizontal divergence.
+    div = w.divergence()
+
+    # Irrotational (divergent) component of the vector wind.
+    uchi, vchi = w.irrotationalcomponent()
+
+    # Computes the vector gradient of a scalar field on the sphere.
+    etax, etay = w.gradient(eta)
+
+    # Compute rossby wave source
+    S = -eta * div - (uchi * etax + vchi * etay)
+
+    # recover data shape
+    S = recover_data(S, wnd_info)
+    div = recover_data(div, wnd_info)
+    eta = recover_data(eta, wnd_info)
+    
+    # assemble xarray datasets
+    data_rws = xr.Dataset({
+                         'rws': (['time', 'lat', 'lon'], S),},
+                         coords =
+                        {'time': (['time'], time),
+                         'lat' : (['lat'], lats),
+                         'lon' : (['lon'], lons)},
+                        attrs = {'long_name' : 'Rossby wave source'})
+    data_div = xr.Dataset({
+                         'div': (['time', 'lat', 'lon'], div),},
+                         coords =
+                        {'time': (['time'], time),
+                         'lat' : (['lat'], lats),
+                         'lon' : (['lon'], lons)},
+                        attrs = {'long_name' : 'Horizontal divergence (300-mb)'})
+    data_eta = xr.Dataset({
+                         'eta': (['time', 'lat', 'lon'], eta),},
+                         coords =
+                        {'time': (['time'], time),
+                         'lat' : (['lat'], lats),
+                         'lon' : (['lon'], lons)},
+                        attrs = {'long_name' : 'Absolute vorticity (sum of relative and planetary vorticity)'})
+    
+    return data_eta, data_div, data_rws
