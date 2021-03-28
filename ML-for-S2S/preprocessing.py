@@ -43,6 +43,7 @@ def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01',
     """
     Create CESM2 variable files that were not preprocessed p1 (or other SubX priority) variables.
     Here we extract variable from daily file containing many variables to reduce memory usage.
+    Contain daily files in ``/temp/`` sub-folder.
     
     Args:
         variable (str): Name of variable in lower case (e.g., 'sst').
@@ -58,6 +59,9 @@ def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01',
     for root, dirnames, filenames in os.walk(f'{parent_directory}CESM2/temp/'):
 
         for num, (yr, mo, dy) in enumerate(zip(d1.strftime("%Y"), d1.strftime("%m"), d1.strftime("%d"))):
+            
+            if yr == '2016' and mo == '02' and dy == '29':
+                dy = '28'
 
             for filename in fnmatch.filter(filenames, f'cesm2cam6v2*{yr}-{mo}-{dy}.{ensemble}.cam.h2.{yr}-{mo}-{dy}-00000.nc'):
 
