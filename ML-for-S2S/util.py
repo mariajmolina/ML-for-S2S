@@ -1,6 +1,7 @@
 import xesmf as xe
 import numpy as np
 import xarray as xr
+from datetime import datetime, timedelta
 from windspharm.standard import VectorWind
 from windspharm.tools import prep_data, recover_data, order_latdim
 
@@ -32,11 +33,30 @@ def month_num_to_string(number):
     
     except:
         raise ValueError('Not a month')
+        
+def datenum_to_datetime(datenums):
+    """
+    Convert Matlab datenum into Python datetime.
+    
+    Args:
+        datenums (list or array): Date(s) in datenum format.
+        
+    Returns:
+        Datetime objects corresponding to datenums.
+    """
+    new_datenums = []
+    
+    for datenum in datenums:
+        days = datenum % 1
+        new_datenums.append(datetime.fromordinal(int(datenum)) + timedelta(days=days) - timedelta(days=365))
+        
+    return pd.to_datetime(new_datenums)
 
 def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_weights=False,
               lat_coord='lat', lon_coord='lon'):
         """
         Function to regrid netcdf onto different grid.
+        
         Args:
             ds (xarray dataset): Variable file.
             variable (str): String for variable name in ``ds``.
@@ -48,6 +68,7 @@ def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_
                                      Defaults to ``False``.
             lat_coord (str): Latitude coordinate. Defaults to ``lat``.
             lon_coord (str): Longitude coordinate. Defaults to ``lon``.
+            
         Returns:
             Regridded file.
         """
@@ -84,6 +105,9 @@ def compute_rws(ds_u, ds_v, lat_coord='lat', lon_coord='lon', time_coord='time')
         lat_coord (str): Latitude coordinate. Defaults to ``lat``.
         lon_coord (str): Longitude coordinate. Defaults to ``lon``.
         time_coord (str): Time coordinate. Defaults to ``time``.
+        
+    Returns:
+        Xarray datasets for absolute vorticity, divergence, and Rossby wave source.
     """
     # grab lat and lon coords
     lats = ds_u.coords[lat_coord].values
