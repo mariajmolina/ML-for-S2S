@@ -1,9 +1,6 @@
-import xesmf as xe
 import numpy as np
+import pandas as pd
 import xarray as xr
-from datetime import datetime, timedelta
-from windspharm.standard import VectorWind
-from windspharm.tools import prep_data, recover_data, order_latdim
 
 def month_num_to_string(number):
     """
@@ -44,6 +41,8 @@ def datenum_to_datetime(datenums):
     Returns:
         Datetime objects corresponding to datenums.
     """
+    from datetime import datetime, timedelta
+    
     new_datenums = []
     
     for datenum in datenums:
@@ -72,6 +71,8 @@ def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_
         Returns:
             Regridded file.
         """
+        import xesmf as xe
+        
         lat0_bnd = int(np.around(ds[lat_coord].min(skipna=True).values))
         lat1_bnd = int(np.around(ds[lat_coord].max(skipna=True).values))
         lon0_bnd = int(np.around(ds[lon_coord].min(skipna=True).values))
@@ -109,6 +110,9 @@ def compute_rws(ds_u, ds_v, lat_coord='lat', lon_coord='lon', time_coord='time')
     Returns:
         Xarray datasets for absolute vorticity, divergence, and Rossby wave source.
     """
+    from windspharm.standard import VectorWind
+    from windspharm.tools import prep_data, recover_data, order_latdim
+    
     # grab lat and lon coords
     lats = ds_u.coords[lat_coord].values
     lons = ds_u.coords[lon_coord].values
