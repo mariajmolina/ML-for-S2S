@@ -20,6 +20,6 @@ Subseasonal-to-Seasonal (S2S) prediction using machine learning
 | zg_500 | Geopotential Z at 500 mbar pressure surface (m). |
 | sst | Sea surface temperature. |
 | ps | Surface pressure. |
-| div | Absolute vorticity. |
-| eta | Divergence (300-mb). |
+| div | Divergence (300-mb). |
+| eta | Absolute vorticity. |
 | rws | Rossby wave source. |
