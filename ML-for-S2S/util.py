@@ -31,6 +31,12 @@ def month_num_to_string(number):
     except:
         raise ValueError('Not a month')
         
+def normalize_data(data):
+    """
+    Function for normalizing data prior to training using z-score.
+    """
+    return (data - np.nanmean(data)) / np.nanstd(data)
+        
 def datenum_to_datetime(datenums):
     """
     Convert Matlab datenum into Python datetime.
