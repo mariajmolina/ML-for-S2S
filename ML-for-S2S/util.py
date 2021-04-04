@@ -53,7 +53,7 @@ def datenum_to_datetime(datenums):
     
     for datenum in datenums:
         days = datenum % 1
-        new_datenums.append(datetime.fromordinal(int(datenum)) + timedelta(days=days) - timedelta(days=365))
+        new_datenums.append(datetime.fromordinal(int(datenum)) + timedelta(days=days) - timedelta(days=366))
         
     return pd.to_datetime(new_datenums)
 
