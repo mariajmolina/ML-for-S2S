@@ -11,8 +11,15 @@ Subseasonal-to-Seasonal (S2S) prediction using machine learning
 | tas2m | Reference height temperature (K). |
 | ts | Surface temperature (radiative) (K). |
 | ua_200 | Zonal wind at 200 mbar pressure surface (m/s). |
-| ua_850 | Zonal wind at 850 mbar pressure surface (m/s). |
 | va_200 | Meridional wind at 200 mbar pressure surface (m/s). |
+| ua_850 | Zonal wind at 850 mbar pressure surface (m/s). |
 | va_850 | Meridional wind at 850 mbar pressure surface (m/s). |
+| u | Zonal wind at 300 mbar pressure surface (m/s). |
+| v | Meridional wind at 300 mbar pressure surface (m/s). |
 | zg_200 | Geopotential Z at 200 mbar pressure surface (m). |
 | zg_500 | Geopotential Z at 500 mbar pressure surface (m). |
+| sst | Sea surface temperature. |
+| ps | Surface pressure. |
+| div | Absolute vorticity. |
+| eta | Divergence (300-mb). |
+| rws | Rossby wave source. |
