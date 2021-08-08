@@ -176,6 +176,9 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
 
         var = xr.open_dataset(fil)[variable].transpose('lon','lat','time').values      # (lon,lat,lead); load file and grab variable
         varChosen = var
+        
+        if variable == 'pr' or variable == 'pr_sfc':
+            varChosen = varChosen * 84600  # convert kg/m2/s to mm/day
 
         if varChosen.shape[2] != 46:
             varChosen = np.ones((ensAvg.shape)) * np.nan
@@ -234,7 +237,12 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         return data_assemble
 
     if save:
-        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+        
+        if len(all_ensembles) > 1:
+            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+            
+        if len(all_ensembles) == 1:
+            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
 
 def cesm2_total_ensemble(filelist):
     """
@@ -294,7 +302,11 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
     assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
         
     # open climatology file
-    clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(cesm2_total_ensemble(filelist))}members_s2s_data.nc')
+    if cesm2_total_ensemble(filelist) == 1:
+        clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{filelist[0].split(".nc")[0][-2:]}member_s2s_data.nc')
+        
+    if cesm2_total_ensemble(filelist) > 1:
+        clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(cesm2_total_ensemble(filelist))}members_s2s_data.nc')
     
     # stack 3x's time for smoothing
     climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time')
@@ -333,6 +345,9 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
 
         var = xr.open_dataset(fil)[variable].transpose('lon','lat','time').values      # (lon,lat,lead); load file and grab variable
         varChosen = var
+        
+        if variable == 'pr' or variable == 'pr_sfc':
+            varChosen = varChosen * 84600  # convert kg/m2/s to mm/day
 
         if varChosen.shape[2] != 46:
             varChosen = np.ones((ensAvg.shape)) * np.nan
@@ -395,4 +410,9 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
         return data_assemble
 
     if save:
-        data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+        
+        if len(all_ensembles) > 1:
+            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+            
+        if len(all_ensembles) == 1:
+            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
