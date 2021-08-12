@@ -3,6 +3,31 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import torch
+from pylab import *
+import itertools
+
+
+def pacific_lon(ds, lon_name='lon'):
+    """
+    Help converting Pacific longitudes to 180 or 360 coordinates.
+    
+    Args:
+        longitude (array): Longitude values.
+    """
+    return xr.where(
+                ds[lon_name] > 180,
+                ds[lon_name] - 360,
+                ds[lon_name])
+
+
+def compute_lat_weights(ds):
+    
+    """Computation of weights for latitude/longitude grid mean"""
+    
+    weights = np.cos(np.deg2rad(ds.lat))    # make weights as cosine of the latitude and broadcast
+    _, weights = xr.broadcast(ds, weights)
+    weights = weights.isel(time=0)          # remove the time dimension from weights
+    return weights
 
 
 def matlab_to_python_time(ds):
@@ -221,6 +246,54 @@ def inverse_minmax(dl_output, ds_MAX, ds_MIN, negative=False):
     if negative:
         
         return -tmp_ds
+    
+    
+def reconstruct_grid(mask, ds_dl):
+    
+    """
+    Reconstruction of 2d grid. Run inverse_minmax first.
+    """
+    
+    landmask = np.argwhere(np.isnan(mask))
+    
+    empty = np.zeros((ds_dl.shape[0], mask.shape[0], mask.shape[1]))
+    
+    counter = 0
+    
+    for i, j in itertools.product(list(range(mask.shape[0])),list(range(mask.shape[1]))):
+        
+        if np.argwhere(np.logical_and(np.isin(landmask[:,0], i), np.isin(landmask[:,1], j))).shape[0] > 0:
+            
+            empty[:, i, j] = np.nan
+        
+        elif ds_dl[0, counter] >= 0:
+            
+            empty[:, i, j] = ds_dl[:, counter]
+            counter += 1
+        
+        else:
+            continue
+            
+    return empty
+
+
+def save_decoded_image(img, name=None):
+    
+    number_of_subplots = int(img.shape[0])
+    
+    img = np.squeeze(img)
+    
+    plt.figure(figsize=(6,20))
+    
+    for i, v in enumerate(range(number_of_subplots)):
+        ax = subplot(number_of_subplots, 2, v + 1)
+        ax.pcolormesh(img[i,:,:], vmin=0, vmax=1, cmap='Reds')
+        ax.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
+
+    if name:
+        plt.savefig(name, bbox_inches='tight', dpi=200)
+    
+    plt.close()
 
 
 def get_device():
@@ -236,12 +309,34 @@ def get_device():
     return device
 
 
-def make_dir():
+def make_img_dir(fullpath):
     
     """Directory for saving progress images"""
     
     image_dir = 'Saved_Images'
     
-    if not os.path.exists(image_dir):
+    if not os.path.exists(fullpath+image_dir):
         
-        os.makedirs(image_dir)
+        os.makedirs(fullpath+image_dir)
+        
+
+def make_model_dir(fullpath):
+    
+    """Directory for saving progress images"""
+    
+    image_dir = 'Saved_Models'
+    
+    if not os.path.exists(fullpath+image_dir):
+        
+        os.makedirs(fullpath+image_dir)
+        
+
+def make_csv_dir(fullpath):
+    
+    """Directory for saving progress images"""
+    
+    image_dir = 'Saved_CSV'
+    
+    if not os.path.exists(fullpath+image_dir):
+        
+        os.makedirs(fullpath+image_dir)
