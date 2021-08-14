@@ -27,6 +27,7 @@ def compute_lat_weights(ds):
     weights = np.cos(np.deg2rad(ds.lat))    # make weights as cosine of the latitude and broadcast
     _, weights = xr.broadcast(ds, weights)
     weights = weights.isel(time=0)          # remove the time dimension from weights
+    
     return weights
 
 
@@ -36,6 +37,7 @@ def matlab_to_python_time(ds):
     
     datenums = ds.coords['time'].values
     timestamps = pd.to_datetime(datenums-719529, unit='D')
+    
     return timestamps
 
 
@@ -44,8 +46,17 @@ def select_region(ds, region=None):
     """Select region based on latitude for S2S Challenge"""
     
     dict_region = {'NH': (30, 90),
+                   'TP': (-29, 29),
                    'SH': (-60, -30),
-                   'TP': (-29, 29)}
+                   
+                   'NOANT': (-60, 90),
+                   
+                   'FIRST': (61, 90),
+                   'SECOND': (31, 60),
+                   'THIRD': (1, 30),
+                   'FOURTH': (-29, 0),
+                   'FIFTH': (-60, -30),
+                  }
     
     if region:
         return ds.sel(lat=slice(dict_region[region][0], dict_region[region][1]))
@@ -59,9 +70,11 @@ def select_biweekly(ds, week='34'):
     """Select week 3-4 (``34``) or 5-6 (``56``)"""
     
     if week=='34':
+        
         return ds.isel(lead=slice(15, 29)).mean('lead', skipna=True)
         
     if week=='56':
+        
         return ds.isel(lead=slice(29, 43)).mean('lead', skipna=True)
 
 
@@ -77,6 +90,7 @@ def create_landmask(path, region=None):
     ds = select_region(ds, region=region)
     ds = ds['anom'].values
     ds = np.where(~np.isnan(ds), 1., np.nan)
+    
     return ds
 
 
@@ -144,110 +158,108 @@ def process_cpc_testdata(path, week='34', region=None):
     return dstotal.to_dataset().transpose('time','lat','lon')
 
 
-def custom_scale(ds_s2s, negative=False, return_scaler=True):
+def minmax_compute(ds):
     
-    """Custom scaling based on anomaly sign"""
+    """Min max computation"""
     
-    if not negative:
-        
-        shifted_ds = ds_s2s[:,:]
-        
-    if negative:
-        
-        shifted_ds = np.abs(ds_s2s[:,:])
-        
-    scaled_ds = np.nan_to_num((shifted_ds - np.nanmin(shifted_ds, axis=0)) / (
-                np.nanmax(shifted_ds, axis=0) - np.nanmin(shifted_ds, axis=0)), 
-                nan=0, posinf=1, neginf=0)
-    
-    if not return_scaler:
-        
-        return scaled_ds
-    
-    if return_scaler:
-        
-        return scaled_ds, np.nanmax(shifted_ds, axis=0), np.nanmin(shifted_ds, axis=0)
+    return (ds - np.nanmin(ds, axis=0)) / (np.nanmax(ds, axis=0) - np.nanmin(ds, axis=0))
 
 
-def test_scale(ds_s2s, ds_MAX, ds_MIN, negative=False):
+def min_max_val_pos(ds):
     
-    """Custom scaling based on anomaly sign for testing data"""
+    """Min and max values for positive anomalies"""
     
-    if not negative:
-        
-        shifted_ds = ds_s2s[:,:]
-        
-    if negative:
-        
-        shifted_ds = np.abs(ds_s2s[:,:])
-        
-    return np.nan_to_num((shifted_ds - ds_MIN) / (ds_MAX - ds_MIN), 
-                          nan=0, posinf=1, neginf=0)
+    tmp_pos = ds.where(ds > 0, np.nan)
+    
+    return np.nanmin(tmp_pos, axis=0), np.nanmax(tmp_pos, axis=0)
 
 
-def preprocess_cesm(ds, land_mask, anomaly_sign):
+def min_max_val_neg(ds):
+    
+    """Min and max values for negative anomalies"""
+    
+    tmp_neg = ds.where(ds < 0, np.nan)
+    
+    return np.nanmin(tmp_neg, axis=0), np.nanmax(tmp_neg, axis=0)
+
+
+def min_max_anom(ds):
+    
+    """Application of min max individually to + and - anomalies individually"""
+    
+    # min-max for negative anomalies
+    tmp_neg = ds.where(ds < 0, np.nan)
+    ds = ds.where(ds >= 0, -minmax_compute(tmp_neg))
+    
+    # min-max for positive anomalies
+    tmp_pos = ds.where(ds > 0, np.nan)
+    ds = ds.where(ds <= 0,  minmax_compute(tmp_pos))
+    
+    return ds
+
+
+def preprocess_cesm(ds, land_mask):
     
     """Preprocessing of CESM2 data for deep learning model"""
+     
+    ds_ = ds['anom']
     
-    if anomaly_sign == 'positive':
-        
-        ds_ = (ds['anom']).where(ds['anom']>=0, 0.0)
-        negative_statement = False
-        
-    if anomaly_sign == 'negative':
-        
-        ds_ = (ds['anom']).where(ds['anom']<=0, 0.0)
-        negative_statement = True
-        
     ds_ = xr.where(np.isnan(land_mask), np.nan, ds_.transpose('time','lat','lon'))
     ds_ = ds_.stack(dim_0=['lat','lon']).reset_index('dim_0').drop(['lat','lon'])
     ds_ = ds_.where(np.isfinite(ds_), drop=True)
     
-    ds_, MAX, MIN = custom_scale(ds_.transpose('time','dim_0').values, 
-                                 negative=negative_statement, return_scaler=True)
-    
-    return ds_.astype(np.float32), MAX, MIN
+    return ds_.values.astype(np.float32)
 
 
-def preprocess_cpclabel(ds, land_mask, anomaly_sign, ds_MAX, ds_MIN):
+def preprocess_cpclabel(ds, land_mask):
     
     """Preprocessing of CPC data for deep learning model"""
+        
+    ds_ = ds['anom']
     
-    if anomaly_sign == 'positive':
-        
-        ds_ = (ds['anom']).where(ds['anom']>=0, 0.0)
-        negative_statement = False
-        
-    if anomaly_sign == 'negative':
-        
-        ds_ = (ds['anom']).where(ds['anom']<=0, 0.0)
-        negative_statement = True
-        
     ds_ = xr.where(np.isnan(land_mask), np.nan, ds_.transpose('time','lat','lon'))
     ds_ = ds_.stack(dim_0=['lat','lon']).reset_index('dim_0').drop(['lat','lon'])
     ds_ = ds_.where(np.isfinite(ds_), drop=True)
     
-    ds_ = test_scale(ds_.transpose('time','dim_0').values, ds_MAX, ds_MIN, 
-                     negative=negative_statement)
-    
-    return ds_.astype(np.float32)
+    return ds_.values.astype(np.float32)
 
 
-def inverse_minmax(dl_output, ds_MAX, ds_MIN, negative=False):
+def remove_any_nans(fct, obs):
     
-    """Inverse of custom scaling based on anomaly sign"""
+    """Final round of nan removal"""
     
-    tmp_ds = (dl_output * (ds_MAX - ds_MIN)) + ds_MIN
+    indx_remove = np.unique(np.argwhere(np.isnan(obs))[:,0])
+    fct = np.delete(fct, indx_remove, axis=0)
+    obs = np.delete(obs, indx_remove, axis=0)
     
-    if not negative:
+    return fct, obs
+
+
+def dual_norm_minmax(fct, obs):
+    
+    """"Dual dataset min max normalization"""
+    
+    fmin = np.min(fct, axis=0)
+    omin = np.min(obs, axis=0)
+    fmax = np.max(fct, axis=0)
+    omax = np.max(obs, axis=0)
+    
+    maxval = np.max(np.vstack([abs(fmax), abs(omax)]), axis=0)
+    minval = np.max(np.vstack([abs(fmin), abs(omin)]), axis=0)
+    
+    fct = (fct - (-minval)) / (maxval - (-minval))
+    obs = (obs - (-minval)) / (maxval - (-minval))
+    
+    return fct, obs, -minval, maxval
+
+
+def inverse_minmax(dl_output, MIN, MAX):
+    
+    """Inverse of min max"""
+    
+    return (dl_output * (MAX - MIN)) + MIN
+
         
-        return tmp_ds
-    
-    if negative:
-        
-        return -tmp_ds
-    
-    
 def reconstruct_grid(mask, ds_dl):
     
     """
@@ -266,18 +278,17 @@ def reconstruct_grid(mask, ds_dl):
             
             empty[:, i, j] = np.nan
         
-        elif ds_dl[0, counter] >= 0:
+        else:
             
             empty[:, i, j] = ds_dl[:, counter]
             counter += 1
-        
-        else:
-            continue
             
     return empty
 
 
 def save_decoded_image(img, name=None):
+    
+    """Saving of decoded image per BATCH"""
     
     number_of_subplots = int(img.shape[0])
     
@@ -287,7 +298,7 @@ def save_decoded_image(img, name=None):
     
     for i, v in enumerate(range(number_of_subplots)):
         ax = subplot(number_of_subplots, 2, v + 1)
-        ax.pcolormesh(img[i,:,:], vmin=0, vmax=1, cmap='Reds')
+        ax.pcolormesh(img[i,:,:], vmin=-10, vmax=10, cmap='BrBG')
         ax.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
 
     if name:
