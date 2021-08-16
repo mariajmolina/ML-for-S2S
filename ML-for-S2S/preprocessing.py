@@ -6,6 +6,7 @@ import xarray as xr
 from itertools import product
 from util import month_num_to_string
 
+
 def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
     Create folders to place new variable files that were not preprocessed p1 (or other SubX priority).
@@ -16,6 +17,7 @@ def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='20
         start (str): Start of hindcasts. Defaults to '1999-01-01' for CESM2.
         end (str): End of hindcasts. Defaults to '2019-12-31' for CESM2.
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
+        
     """
     # date array
     d1 = pd.date_range(start=start, end=end, freq=freq)
@@ -39,6 +41,7 @@ def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='20
         
     return
 
+
 def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
     Create CESM2 variable files that were not preprocessed p1 (or other SubX priority) variables.
@@ -52,6 +55,7 @@ def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01',
         start (str): Start of hindcasts. Defaults to '1999-01-01' for CESM2.
         end (str): End of hindcasts. Defaults to '2019-12-31' for CESM2.
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
+        
     """
     # date array
     d1 = pd.date_range(start=start, end=end, freq=freq)
@@ -72,6 +76,7 @@ def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01',
                 
     return
 
+
 def create_cesm2_pressure_files(filelist, variable, pressure=300.):
     """
     Create CESM2 variable files that were not preprocessed p1 (or other SubX priority) variables.
@@ -82,13 +87,17 @@ def create_cesm2_pressure_files(filelist, variable, pressure=300.):
         filelist (list of str): List of file names and directory locations.
         variable (str): Name of variable in lower case (e.g., 'sst').
         pressure (float): Pressure level. Defaults to ``300.``
+        
     """
     # loop through list of hindcast files
     for fil in filelist:
+        
         # grab respective pressure level and save out
         ds = xr.open_dataset(fil).sel(lev_p=pressure).drop('lev_p')
         ds.to_netcdf(f"{fil.split(variable)[0]}{variable}_temp{fil.split(variable)[1]}{fil.split('/')[-1]}")
+        
     return
+
 
 def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
@@ -101,6 +110,7 @@ def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end
         start (str): Start of hindcasts. Defaults to '1999-01-01' for CESM2.
         end (str): End of hindcasts. Defaults to '2019-12-31' for CESM2.
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
+        
     """
     # date array
     d1 = pd.date_range(start=start, end=end, freq=freq)
@@ -140,6 +150,7 @@ def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end
                 
     return matches
 
+
 def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, parent_directory=None):
     """
     Create CESM2 hindcast climatology. Outputs array (lon, lat, lead, 365).
@@ -152,9 +163,11 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         author (str): Author of file. Defaults to None.
         parent_directory (str): Directory where files are located (e.g., '/glade/scratch/$USER/s2s/').
                                 Defaults to None.
+                                
     """
     if save:
         assert isinstance(author, str), "Please set author for file saving."
+        
     if save:
         assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
     
@@ -244,6 +257,7 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         if len(all_ensembles) == 1:
             data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
 
+            
 def cesm2_total_ensemble(filelist):
     """
     Extract the total number of ensembles contained in the list of CESM2 hindcast files.
@@ -251,8 +265,8 @@ def cesm2_total_ensemble(filelist):
     
     Args:
         filelist (list of str): List of file names and directory locations.
+        
     """
-    
     dateStrPrevious = '01jan1000'        # just a random old date that doesn't exist
     index_help = 0                       # set to 0 for the very first file date
     char_1 = "cesm2cam6v2_"              # date string help
@@ -281,6 +295,7 @@ def cesm2_total_ensemble(filelist):
 
         if not grab_ensembles:
             return int(len(all_ensembles))
+        
 
 def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, author=None):
     """
@@ -295,6 +310,7 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
                                 (e.g., '/glade/scratch/$USER/s2s/').
         save (boolean): Set to True if want to save climatology as netCDF. Defaults to False.
         author (str): Author of file. Defaults to None.
+        
     """
     if save:
         assert isinstance(author, str), "Please set author for file saving."

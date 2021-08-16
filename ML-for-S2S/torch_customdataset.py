@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 
+
 class CustomDataset(Dataset):
     
     def __init__(self, traindata, testdata, transform=None, target_transform=None):

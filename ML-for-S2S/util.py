@@ -2,12 +2,14 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+
 def month_num_to_string(number):
     """
     Convert number to three-letter month.
     
     Args:
         number: Month in number format.
+        
     """
     m = {
          1: 'jan',
@@ -31,12 +33,15 @@ def month_num_to_string(number):
     except:
         raise ValueError('Not a month')
         
+        
 def normalize_data(data):
     """
     Function for normalizing data prior to training using z-score.
+    
     """
     return (data - np.nanmean(data)) / np.nanstd(data)
-        
+    
+    
 def datenum_to_datetime(datenums):
     """
     Convert Matlab datenum into Python datetime.
@@ -46,6 +51,7 @@ def datenum_to_datetime(datenums):
         
     Returns:
         Datetime objects corresponding to datenums.
+        
     """
     from datetime import datetime, timedelta
     
@@ -56,6 +62,7 @@ def datenum_to_datetime(datenums):
         new_datenums.append(datetime.fromordinal(int(datenum)) + timedelta(days=days) - timedelta(days=366))
         
     return pd.to_datetime(new_datenums)
+
 
 def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_weights=False,
               lat_coord='lat', lon_coord='lon'):
@@ -76,6 +83,7 @@ def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_
             
         Returns:
             Regridded file.
+            
         """
         import xesmf as xe
         
@@ -100,6 +108,7 @@ def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_
         dr_out = dr_out.rename(y=lat_coord, x=lon_coord)
         
         return dr_out
+    
 
 def compute_rws(ds_u, ds_v, lat_coord='lat', lon_coord='lon', time_coord='time'):
     """
@@ -115,6 +124,7 @@ def compute_rws(ds_u, ds_v, lat_coord='lat', lon_coord='lon', time_coord='time')
         
     Returns:
         Xarray datasets for absolute vorticity, divergence, and Rossby wave source.
+        
     """
     from windspharm.standard import VectorWind
     from windspharm.tools import prep_data, recover_data, order_latdim
@@ -164,6 +174,7 @@ def compute_rws(ds_u, ds_v, lat_coord='lat', lon_coord='lon', time_coord='time')
                          'lat' : (['lat'], lats),
                          'lon' : (['lon'], lons)},
                         attrs = {'long_name' : 'Rossby wave source'})
+    
     data_div = xr.Dataset({
                          'div': (['time', 'lat', 'lon'], div),},
                          coords =
@@ -171,6 +182,7 @@ def compute_rws(ds_u, ds_v, lat_coord='lat', lon_coord='lon', time_coord='time')
                          'lat' : (['lat'], lats),
                          'lon' : (['lon'], lons)},
                         attrs = {'long_name' : 'Horizontal divergence (300-mb)'})
+    
     data_eta = xr.Dataset({
                          'eta': (['time', 'lat', 'lon'], eta),},
                          coords =
