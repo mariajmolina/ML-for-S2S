@@ -297,7 +297,7 @@ def cesm2_total_ensemble(filelist):
             return int(len(all_ensembles))
         
 
-def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, author=None):
+def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, author=None, allclimo=False):
     """
     Create CESM2 hindcast anomalies. Outputs array (lon, lat, lead, number of forecasts).
     Number of forecasts is equal to the length of ``filelist`` divided by ``total ensembles``.
@@ -318,11 +318,18 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
     assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
         
     # open climatology file
-    if cesm2_total_ensemble(filelist) == 1:
-        clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{filelist[0].split(".nc")[0][-2:]}member_s2s_data.nc')
+    
+    if not allclimo:
+        if cesm2_total_ensemble(filelist) == 1:
+            clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{filelist[0].split(".nc")[0][-2:]}member_s2s_data.nc')
+       
+    if not allclimo:
+        if cesm2_total_ensemble(filelist) > 1:
+            clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(cesm2_total_ensemble(filelist))}members_s2s_data.nc')
         
-    if cesm2_total_ensemble(filelist) > 1:
-        clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(cesm2_total_ensemble(filelist))}members_s2s_data.nc')
+    if allclimo:
+        if cesm2_total_ensemble(filelist) == 1:
+            clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_11members_s2s_data.nc')
     
     # stack 3x's time for smoothing
     climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time')
@@ -423,12 +430,19 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
                          'Ensembles' : all_ensembles})
     
     if not save:
+        
         return data_assemble
-
+    
     if save:
         
-        if len(all_ensembles) > 1:
-            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+        if not allclimo:
+            if len(all_ensembles) > 1:
+                data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
             
-        if len(all_ensembles) == 1:
-            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
+        if not allclimo:
+            if len(all_ensembles) == 1:
+                data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
+            
+        if allclimo:
+            if len(all_ensembles) == 1:
+                data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data_allclimo.nc')
