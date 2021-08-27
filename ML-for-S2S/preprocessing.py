@@ -363,7 +363,10 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
 
     assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
     
-    assert str(cesm2_total_ensemble(filelist)) == str(11), "11 ensemble members exist, generate climo for 11 members"
+    if str(cesm2_total_ensemble(filelist)) != str(11):
+        
+        import warnings
+        warnings.warn("Using climatology computed from 11 ensemble members!")
     
     clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_11members_s2s_data.nc') # open climo
     
