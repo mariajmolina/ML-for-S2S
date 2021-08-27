@@ -13,7 +13,7 @@ Functions for use with Pytorch.
 
 This module contains utility functions for the S2S machine learning project.
 
-Author: Maria J. Molina, NCAR
+Author: Maria J. Molina, NCAR (molina@ucar.edu)
 
 """
 

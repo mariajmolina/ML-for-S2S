@@ -6,6 +6,15 @@ import xarray as xr
 from itertools import product
 from util import month_num_to_string
 
+"""
+
+Module contains several functions for preprocessing S2S hindcasts.
+
+Author: Maria J. Molina, NCAR (molina@ucar.edu)
+
+Contributions from Sasha Anne Glanville, NCAR
+
+"""
 
 def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
@@ -19,24 +28,26 @@ def create_cesm2_folders(variable, parent_directory, start='1999-01-01', end='20
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
         
     """
-    # date array
     d1 = pd.date_range(start=start, end=end, freq=freq)
     
-    # generate folders for new variable
     if os.path.exists(parent_directory):
         
         for yr, mo in product(np.unique(d1.strftime("%Y")), np.unique(d1.strftime("%m"))):
+            
             new_directory = 'CESM2/'+variable+'/'+yr+'/'+mo
             path = os.path.join(parent_directory, new_directory)
             
             try: 
+                
                 os.makedirs(path, exist_ok = True) 
                 print("Directory '%s' created successfully" % new_directory) 
                 
-            except OSError as error: 
+            except OSError as error:
+                
                 print("Directory '%s' cannot be created" % new_directory)
                 
     if not os.path.exists(parent_directory):
+        
         print('Parent directory does not exist.')
         
     return
@@ -57,23 +68,23 @@ def create_cesm2_files(variable, parent_directory, ensemble, start='1999-01-01',
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
         
     """
-    # date array
     d1 = pd.date_range(start=start, end=end, freq=freq)
     
     for root, dirnames, filenames in os.walk(f'{parent_directory}CESM2/temp/'):
-
+        
         for num, (yr, mo, dy) in enumerate(zip(d1.strftime("%Y"), d1.strftime("%m"), d1.strftime("%d"))):
             
             if yr == '2016' and mo == '02' and dy == '29':
-                dy = '28'
-
-            for filename in fnmatch.filter(filenames, f'cesm2cam6v2*{yr}-{mo}-{dy}.{ensemble}.cam.h2.{yr}-{mo}-{dy}-00000.nc'):
-
-                ds = xr.open_dataset(root+filename)[variable.upper()]
-                ds.to_dataset(
-                    name=variable.upper()).to_netcdf(
-                    f'{parent_directory}CESM2/{variable}/{yr}/{mo}/{variable}_cesm2cam6v2_{dy}{month_num_to_string(mo)}{yr}_00z_d01_d46_m{ensemble}.nc')
                 
+                dy = '28'
+                
+            for filename in fnmatch.filter(filenames, f'cesm2cam6v2*{yr}-{mo}-{dy}.{ensemble}.cam.h2.{yr}-{mo}-{dy}-00000.nc'):
+                
+                ds = xr.open_dataset(root+filename)[variable.upper()]
+                
+                ds.to_dataset(name=variable.upper()).to_netcdf(
+                    f'{parent_directory}CESM2/{variable}/{yr}/{mo}/{variable}_cesm2cam6v2_{dy}{month_num_to_string(mo)}{yr}_00z_d01_d46_m{ensemble}.nc')
+    
     return
 
 
@@ -89,11 +100,10 @@ def create_cesm2_pressure_files(filelist, variable, pressure=300.):
         pressure (float): Pressure level. Defaults to ``300.``
         
     """
-    # loop through list of hindcast files
     for fil in filelist:
         
-        # grab respective pressure level and save out
         ds = xr.open_dataset(fil).sel(lev_p=pressure).drop('lev_p')
+        
         ds.to_netcdf(f"{fil.split(variable)[0]}{variable}_temp{fil.split(variable)[1]}{fil.split('/')[-1]}")
         
     return
@@ -112,40 +122,46 @@ def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end
         freq (str): Frequency of hindcast starts. Defaults to 'W-MON' for CESM2.
         
     """
-    # date array
     d1 = pd.date_range(start=start, end=end, freq=freq)
     
-    # generate list
     matches = []
+    
     for num, (yr, mo, dy) in enumerate(zip(d1.strftime("%Y"), d1.strftime("%m"), d1.strftime("%d"))):
         
-        # leap day handling
         if mo == '02' and dy == '29':
+            
             dy = '28'
         
         for root, dirnames, filenames in os.walk(f'{parent_directory}CESM2/{variable}/{yr}/{mo}/'):
             
             if isinstance(ensemble, str):
+                
                 for filename in fnmatch.filter(filenames, f'*_cesm2cam6v2_{dy}*_m{ensemble}.nc'):
 
                     thefile = os.path.join(root, filename)
 
                     if os.access(thefile, os.R_OK):
+                        
                         matches.append(thefile)
 
                     if not os.access(thefile, os.R_OK):
+                        
                         matches.append(np.nan)
                         
             if isinstance(ensemble, list):
+                
                 for ens in ensemble:
+                    
                     for filename in fnmatch.filter(filenames, f'*_cesm2cam6v2_{dy}*_m{ens}.nc'):
                         
                         thefile = os.path.join(root, filename)
 
                         if os.access(thefile, os.R_OK):
+                            
                             matches.append(thefile)
 
                         if not os.access(thefile, os.R_OK):
+                            
                             matches.append(np.nan)
                 
     return matches
@@ -166,18 +182,19 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
                                 
     """
     if save:
+        
         assert isinstance(author, str), "Please set author for file saving."
         
     if save:
+        
         assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
     
-    dateStrPrevious = '01jan1000'        # just a random old date that doesn't exist
-    index_help = 0                       # set to 0 for the very first file date
-    char_1 = "cesm2cam6v2_"              # date string help
+    dateStrPrevious = '01jan1000' # just a random date
+    index_help = 0
+    char_1 = "cesm2cam6v2_"
     char_2 = "_00z_d01_d46"
     grab_ensembles = True
-
-    # loop through list of hindcast files
+    
     for fil in filelist:
 
         dateStr = fil[fil.find(char_1)+12 : fil.find(char_2)]
@@ -185,39 +202,54 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         doy = starttime.dayofyear
 
         if (starttime.year % 4) == 0 and starttime.month > 2:
+            
             doy = doy - 1
 
-        var = xr.open_dataset(fil)[variable].transpose('lon','lat','time').values      # (lon,lat,lead); load file and grab variable
+        var = xr.open_dataset(fil)[variable].transpose('lon','lat','time').values # (lon,lat,lead); load file and grab variable
+        
         varChosen = var
         
         if variable == 'pr' or variable == 'pr_sfc':
-            varChosen = varChosen * 84600  # convert kg/m2/s to mm/day
+            
+            varChosen = varChosen * 84600 # convert kg/m2/s to mm/day
 
         if varChosen.shape[2] != 46:
+            
             varChosen = np.ones((ensAvg.shape)) * np.nan
 
         if index_help == 0:
-            climBin = np.zeros((
-                varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], 365))      # (lon, lat, lead, 365 days in year)
-            climBinDays = np.zeros((
-                varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], 365))
-            lon = xr.open_dataset(fil)[variable].coords['lon'].values                  # grab lon and lat arrays
+            
+            climBin = np.zeros((varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], 365)) # (lon, lat, lead, 365 days)
+            
+            climBinDays = np.zeros((varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], 365))
+            
+            lon = xr.open_dataset(fil)[variable].coords['lon'].values # grab lon and lat arrays
             lat = xr.open_dataset(fil)[variable].coords['lat'].values
+            
             if grab_ensembles:
+                
                 all_ensembles = []
-                all_ensembles.append(fil[fil.find('_m')+2:fil.find('_m')+4])     # saving ensemble members for attrs
+                all_ensembles.append(fil[fil.find('_m')+2:fil.find('_m')+4]) # saving ensemble members for attrs
 
-        if dateStr == dateStrPrevious:                           # if dates match, means you are on next ensemble member
-            x += 1                                               # to compute ensemble mean
+        if dateStr == dateStrPrevious: # if dates match, means you are on next ensemble member
+            
+            x += 1 # to compute ensemble mean
             ensAvg = (ensAvg * (x - 1) + varChosen) / x
+            
             if grab_ensembles:
+                
                 all_ensembles.append(fil[fil.find('_m')+2:fil.find('_m')+4])
+                
         else:
-            if index_help != 0:                 # if dates don't match, but make sure we are past the first file and ensAvg has data
-                if not np.all(ensAvg == 0):          
-                    climBin[:,:,:,doyPrevious - 1] = climBin[:,:,:,doyPrevious - 1] + ensAvg      # doyPrevious - 1 bc 0-based index
+            
+            if index_help != 0: # if dates don't match, but make sure we are past the first file and ensAvg has data
+                
+                if not np.all(ensAvg == 0):
+                    
+                    climBin[:,:,:,doyPrevious - 1] = climBin[:,:,:,doyPrevious - 1] + ensAvg # doyPrevious - 1 bc 0-based index
                     climBinDays[:,:,:,doyPrevious - 1] = climBinDays[:,:,:,doyPrevious - 1] + 1
                     grab_ensembles = False
+                    
             ensAvg = varChosen
             x = 1
 
@@ -227,9 +259,8 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
 
     climBin[:,:,:,doyPrevious - 1] = climBin[:,:,:,doyPrevious - 1] + ensAvg
     climBinDays[:,:,:,doyPrevious - 1] = climBinDays[:,:,:,doyPrevious - 1] + 1
-    clim = climBin / climBinDays                                                         # Final climatology (sum/n)
-
-    # create dates array
+    clim = climBin / climBinDays
+    
     dates_array = pd.to_datetime(np.array([file[file.find(char_1)+12:file.find(char_2)] for file in filelist])).unique()
 
     data_assemble = xr.Dataset({
@@ -247,14 +278,17 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
                          'Ensembles' : all_ensembles})
     
     if not save:
+        
         return data_assemble
 
     if save:
         
         if len(all_ensembles) > 1:
+            
             data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
             
         if len(all_ensembles) == 1:
+            
             data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
 
             
@@ -267,37 +301,48 @@ def cesm2_total_ensemble(filelist):
         filelist (list of str): List of file names and directory locations.
         
     """
-    dateStrPrevious = '01jan1000'        # just a random old date that doesn't exist
-    index_help = 0                       # set to 0 for the very first file date
-    char_1 = "cesm2cam6v2_"              # date string help
+    dateStrPrevious = '01jan1000' # just a random date
+    index_help = 0
+    char_1 = "cesm2cam6v2_"
     char_2 = "_00z_d01_d46" 
     grab_ensembles = True
     
     for fil in filelist:
+        
         dateStr = fil[fil.find(char_1)+12 : fil.find(char_2)]
 
         if index_help == 0:
+            
             if grab_ensembles:
+                
                 all_ensembles = []
                 all_ensembles.append(fil[fil.find('_m')+2:fil.find('_m')+4])
-
+                
         if dateStr == dateStrPrevious:
+            
             if grab_ensembles:
+                
                 all_ensembles.append(fil[fil.find('_m')+2:fil.find('_m')+4])
+                
         else:
-            if index_help != 0:               
+            
+            if index_help != 0:
+                
                 if not np.all(ensAvg == 0):
+                    
                     grab_ensembles = False
+                    
             ensAvg = 1
 
         dateStrPrevious = dateStr
         index_help += 1
 
         if not grab_ensembles:
+            
             return int(len(all_ensembles))
         
 
-def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, author=None, allclimo=False):
+def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, author=None):
     """
     Create CESM2 hindcast anomalies. Outputs array (lon, lat, lead, number of forecasts).
     Number of forecasts is equal to the length of ``filelist`` divided by ``total ensembles``.
@@ -313,92 +358,91 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
         
     """
     if save:
+        
         assert isinstance(author, str), "Please set author for file saving."
 
     assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
-        
-    # open climatology file
     
-    if not allclimo:
-        if cesm2_total_ensemble(filelist) == 1:
-            clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{filelist[0].split(".nc")[0][-2:]}member_s2s_data.nc')
-       
-    if not allclimo:
-        if cesm2_total_ensemble(filelist) > 1:
-            clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(cesm2_total_ensemble(filelist))}members_s2s_data.nc')
-        
-    if allclimo:
-        if cesm2_total_ensemble(filelist) == 1:
-            clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_11members_s2s_data.nc')
+    assert str(cesm2_total_ensemble(filelist)) == str(11), "11 ensemble members exist, generate climo for 11 members"
     
-    # stack 3x's time for smoothing
-    climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time')
+    clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_11members_s2s_data.nc') # open climo
     
-    # smooth time with 31 days 2x's
-    # 31 day window to copy Lantao, but maybe it should be 16
-    climSmooth = climCyclical.rolling(time=31, min_periods=1, center=True).mean(skipna=True).rolling(time=31, min_periods=1, center=True).mean(skipna=True)
+    climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time') # stack 3x's time for smoothing
     
-    # choose the middle year (smoothed)
-    climSmooth = climSmooth.isel(time=slice(365,365 * 2))
+    # smooth time with 31 days 2x's (31 day window to copy Lantao, but maybe it should be 16)
+    climSmooth = climCyclical.rolling(time=31, min_periods=1, center=True).mean(skipna=True).rolling(
+                                      time=31, min_periods=1, center=True).mean(skipna=True)
     
-    # extract array for loop
-    climSmooth = climSmooth.transpose('lon','lat','lead','time').values
+    climSmooth = climSmooth.isel(time=slice(365,365 * 2)) # choose the middle year (smoothed)
     
-    # delete previous arrays
-    del climCyclical
+    climSmooth = climSmooth.transpose('lon','lat','lead','time').values # extract array for loop
+    
+    del climCyclical # delete previous arrays
     del clima
     
-    # items for loop
-    dateStrPrevious = '01jan1000'        # just a random old date that doesn't exist
-    index_help = 0                       # set to 0 for the very first file date
+    dateStrPrevious = '01jan1000' # just a random date
+    index_help = 0 
     forecastCounter = 0
-    char_1 = "cesm2cam6v2_"              # date string help
+    char_1 = "cesm2cam6v2_"
     char_2 = "_00z_d01_d46" 
     grab_ensembles = True
     
-    # loop through list of hindcast files
-    for fil in filelist:
+    for fil in filelist: # loop through list of hindcast files
 
         dateStr = fil[fil.find(char_1)+12 : fil.find(char_2)]
         starttime = pd.to_datetime(dateStr)
         doy = starttime.dayofyear
 
         if (starttime.year % 4) == 0 and starttime.month > 2:
+            
             doy = doy - 1
 
-        var = xr.open_dataset(fil)[variable].transpose('lon','lat','time').values      # (lon,lat,lead); load file and grab variable
+        var = xr.open_dataset(fil)[variable].transpose('lon','lat','time').values # (lon,lat,lead); load file and grab variable
         varChosen = var
         
         if variable == 'pr' or variable == 'pr_sfc':
-            varChosen = varChosen * 84600  # convert kg/m2/s to mm/day
+            
+            varChosen = varChosen * 84600 # convert kg/m2/s to mm/day
 
         if varChosen.shape[2] != 46:
+            
             varChosen = np.ones((ensAvg.shape)) * np.nan
 
         if index_help == 0:
+            
             dim_last = int(len(filelist)/cesm2_total_ensemble(filelist))
-            anom = np.empty((
-                varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], dim_last))
-            starttimeBin = np.empty((
-                dim_last), dtype="S10")                                                # (lon, lat, lead, num of forecasts)
-            lon = xr.open_dataset(fil)[variable].coords['lon'].values                  # grab lon and lat arrays
+            
+            anom = np.empty((varChosen.shape[0], varChosen.shape[1], varChosen.shape[2], dim_last))
+            
+            starttimeBin = np.empty((dim_last), dtype="S10") # (lon, lat, lead, num of forecasts)
+            lon = xr.open_dataset(fil)[variable].coords['lon'].values # grab lon and lat arrays
             lat = xr.open_dataset(fil)[variable].coords['lat'].values
+            
             if grab_ensembles:
+                
                 all_ensembles = []
-                all_ensembles.append(fil[fil.find('_m')+2:fil.find('_m')+4])     # saving ensemble members for attrs
+                all_ensembles.append(fil[fil.find('_m')+2:fil.find('_m')+4]) # saving ensemble members for attrs
 
-        if dateStr == dateStrPrevious:                           # if dates match, means you are on next ensemble member
-            x += 1                                               # to compute ensemble mean
+        if dateStr == dateStrPrevious: # if dates match, means you are on next ensemble member
+            
+            x += 1  # to compute ensemble mean
             ensAvg = (ensAvg * (x - 1) + varChosen) / x
+            
             if grab_ensembles:
+                
                 all_ensembles.append(fil[fil.find('_m')+2:fil.find('_m')+4])
+                
         else:
-            if index_help != 0:                 # if dates don't match, but make sure we are past the first file and ensAvg has data
+            
+            if index_help != 0: # if dates don't match, but make sure we are past the first file and ensAvg has data
+                
                 if not np.all(ensAvg == 0):
+                    
                     forecastCounter += 1
                     anom[:,:,:,forecastCounter - 1] = ensAvg - np.squeeze(climSmooth[:,:,:,doyPrevious - 1])
                     starttimeBin[forecastCounter - 1] = str(starttimePrevious)
                     grab_ensembles = False
+                    
             ensAvg = varChosen
             x = 1
 
@@ -410,10 +454,9 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
     forecastCounter += 1
     anom[:,:,:,forecastCounter - 1] = ensAvg - np.squeeze(climSmooth[:,:,:,doyPrevious - 1])
     starttimeBin[forecastCounter - 1] = starttimePrevious
-
-    # create dates array
+    
     dates_array = pd.to_datetime(np.array([file[file.find(char_1)+12:file.find(char_2)] for file in filelist])).unique()
-
+    
     data_assemble = xr.Dataset({
                          'anom': (['lon','lat','lead','time'], anom),
                          'fcst': (['time'], starttimeBin),
@@ -435,14 +478,10 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
     
     if save:
         
-        if not allclimo:
-            if len(all_ensembles) > 1:
-                data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+        if len(all_ensembles) > 1:
             
-        if not allclimo:
-            if len(all_ensembles) == 1:
-                data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
+            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
             
-        if allclimo:
-            if len(all_ensembles) == 1:
-                data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data_allclimo.nc')
+        if len(all_ensembles) == 1:
+            
+            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')

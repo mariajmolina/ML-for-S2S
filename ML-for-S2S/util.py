@@ -1,14 +1,28 @@
+import os
+import itertools
 import numpy as np
 import pandas as pd
 import xarray as xr
+from pylab import *
+import torch
+from torch.autograd import Variable
 
+"""
+
+Miscellaneous utility functions.
+
+Module contains several utility functions S2S machine learning project.
+
+Author: Maria J. Molina, NCAR (molina@ucar.edu)
+
+"""
 
 def month_num_to_string(number):
     """
     Convert number to three-letter month.
     
     Args:
-        number: Month in number format.
+        number: month in number format.
         
     """
     m = {
@@ -40,6 +54,66 @@ def normalize_data(data):
     
     """
     return (data - np.nanmean(data)) / np.nanstd(data)
+
+
+def minmax_compute(ds):
+    """
+    Min max computation.
+    
+    Args:
+        ds: ndarray
+        
+    """
+    return (ds - np.nanmin(ds, axis=0)) / (np.nanmax(ds, axis=0) - np.nanmin(ds, axis=0))
+
+
+def dual_norm_minmax(fct, obs):
+    """"
+    Dual dataset min max normalization.
+    
+    Args:
+        fct (ndarray): forecast data
+        obs (ndarray): observation data
+        
+    """
+    fmin = np.min(fct, axis=0)
+    omin = np.min(obs, axis=0)
+    fmax = np.max(fct, axis=0)
+    omax = np.max(obs, axis=0)
+    
+    maxval = np.max(np.vstack([abs(fmax), abs(omax)]), axis=0)
+    minval = np.max(np.vstack([abs(fmin), abs(omin)]), axis=0)
+    
+    fct = (fct - (-minval)) / (maxval - (-minval))
+    obs = (obs - (-minval)) / (maxval - (-minval))
+    
+    return fct, obs, -minval, maxval
+
+
+def preset_minmax_compute(ds, MIN, MAX):
+    """
+    Min max computation.
+    
+    Args:
+        ds: ndarray.
+        MIN (ndarray): minimum data grid.
+        MAX (ndarray): maximum data grid.
+        
+    """
+    return (ds - MIN) / (MAX - MIN)
+
+
+def inverse_minmax(dl_output, MIN, MAX):
+    """
+    Inverse of min max.
+    
+    Args:
+        dl_output (ndarray): trained model prediction.
+        MIN (ndarray): minimum data grid.
+        MAX (ndarray): maximum data grid.
+        
+    """
+    return (dl_output * (MAX - MIN)) + MIN
     
     
 def datenum_to_datetime(datenums):
@@ -96,6 +170,7 @@ def regridder(ds, variable, method='nearest_s2d', offset=0.5, dcoord=1.0, reuse_
                                  lat0_b=lat0_bnd-offset, lat1_b=lat1_bnd+offset, d_lat=dcoord)
         
         if method == 'conservative':
+            
             latb = np.hstack([(ds[lat_coord]-((ds[lat_coord][1]-ds[lat_coord][0])/2)),ds[lat_coord][-1]+((ds[lat_coord][1]-ds[lat_coord][0])/2)])
             lonb = np.hstack([(ds[lon_coord]-((ds[lon_coord][1]-ds[lon_coord][0])/2)),ds[lon_coord][-1]+((ds[lon_coord][1]-ds[lon_coord][0])/2)])
             ds = ds.assign_coords({'lat_b':(latb),

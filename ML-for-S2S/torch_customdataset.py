@@ -1,6 +1,13 @@
 import torch
 from torch.utils.data import Dataset
 
+"""
+
+Module contains several pytorch datasets.
+
+Author: Maria J. Molina, NCAR (molina@ucar.edu)
+
+"""
 
 class CustomDataset(Dataset):
     
