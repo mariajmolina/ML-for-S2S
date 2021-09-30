@@ -1,5 +1,6 @@
 import os
 import fnmatch
+import calendar
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -109,6 +110,46 @@ def create_cesm2_pressure_files(filelist, variable, pressure=300.):
     return
 
 
+def gpcp_filelist(parent_directory, variable='precip', start='1999-01-01', end='2019-12-31', freq='D'):
+    """
+    Create list of daily GPCP Version 2.3 Combined Precipitation Data Set files.
+    https://www.ncei.noaa.gov/data/global-precipitation-climatology-project-gpcp-daily/access/
+    
+    Args:
+        parent_directory (str): Directory where files are located (e.g., '/glade/scratch/$USER/s2s/').
+        variable (str): Name of GPCP variable (e.g., 'precip').
+        start (str): Start of hindcasts. Defaults to '1999-01-01' for CESM2.
+        end (str): End of hindcasts. Defaults to '2019-12-31' for CESM2.
+        freq (str): Frequency of hindcast starts. Defaults to 'D' for daily.
+        
+    """
+    d1 = pd.date_range(start=start, end=end, freq=freq)
+    
+    matches = []
+    
+    for num, (yr, mo, dy) in enumerate(zip(d1.strftime("%Y"), d1.strftime("%m"), d1.strftime("%d"))):
+        
+        if mo == '02' and dy == '29':
+            
+            continue # skip leap years
+        
+        for root, dirnames, filenames in os.walk(f'{parent_directory}/'):
+
+            for filename in fnmatch.filter(filenames, f'*_daily_d{yr}{mo}{dy}_c*.nc'):
+
+                thefile = os.path.join(root, filename)
+
+                if os.access(thefile, os.R_OK):
+
+                    matches.append(thefile)
+
+                if not os.access(thefile, os.R_OK):
+
+                    matches.append(np.nan)
+                
+    return matches
+
+
 def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end='2019-12-31', freq='W-MON'):
     """
     Create list of variable files.
@@ -167,6 +208,78 @@ def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end
     return matches
 
 
+def gpcp_climatology(filelist, variable='precip', save=False, author=None, parent_directory=None):
+    """
+    Create GPCP Version 2.3 Combined Precipitation Data Set climatology.
+    
+    Args:
+        filelist (list of str): List of file names and directory locations.
+        save (boolean): Set to True if want to save climatology as netCDF. Defaults to False.
+        author (str): Author of file. Defaults to None.
+        parent_directory (str): Directory where files are located (e.g., '/glade/scratch/$USER/s2s/').
+                                Defaults to None.
+                                
+    """
+    if save:
+        
+        assert isinstance(author, str), "Please set author for file saving."
+        assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
+
+    clim = np.zeros((int(len(filelist)/365), 365, 180, 360))
+
+    doy = 0
+    yr = 0
+    dates = []
+    years = []
+
+    for num, file in enumerate(filelist):
+
+        ds = xr.open_dataset(file)
+        ds = ds[variable].isel(time=0)
+
+        dates.append(pd.Timestamp(ds.time.values))
+        
+        ds = ds.where(ds>=0.,0.)  # valid range: [0.,100.]
+        ds = ds.where(ds<=100.,100.)
+
+        if num == 0:
+
+            lats = ds.latitude.values
+            lons = ds.longitude.values
+
+        clim[yr,doy,:,:] = ds.values
+
+        doy += 1
+
+        if doy == 365:
+
+            doy = 0
+            yr += 1
+            
+            years.append(int(ds.time.dt.strftime('%Y').values))
+
+    data_assemble = xr.Dataset({
+                         'clim': (['time','lat','lon'], np.nanmean(clim, axis=0)),
+                        },
+                         coords =
+                        {'date_range': (['date_range'], pd.to_datetime(dates)),
+                         'time': (['time'], np.arange(1,365 + 1,1)),
+                         'lat' : (['lat'], lats),
+                         'lon' : (['lon'], lons)
+                        },
+                        attrs = 
+                        {'File Author' : author,
+                         'Years' : np.array(years)})
+
+    if not save:
+
+        return data_assemble
+
+    if save:
+
+        data_assemble.to_netcdf(f'{parent_directory}CESM2_OBS/{variable.lower()}_clim_gpcp_data.nc')
+
+
 def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, parent_directory=None):
     """
     Create CESM2 hindcast climatology. Outputs array (lon, lat, lead, 365).
@@ -184,9 +297,6 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
     if save:
         
         assert isinstance(author, str), "Please set author for file saving."
-        
-    if save:
-        
         assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
     
     dateStrPrevious = '01jan1000' # just a random date
@@ -212,6 +322,10 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         if variable == 'pr' or variable == 'pr_sfc':
             
             varChosen = varChosen * 84600 # convert kg/m2/s to mm/day
+            
+        if variable == 'tas_2m':
+            
+            varChosen = varChosen - 273.15 # convert K to C
 
         if varChosen.shape[2] != 46:
             
@@ -406,6 +520,10 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
         if variable == 'pr' or variable == 'pr_sfc':
             
             varChosen = varChosen * 84600 # convert kg/m2/s to mm/day
+            
+        if variable == 'tas_2m':
+            
+            varChosen = varChosen - 273.15 # convert K to C
 
         if varChosen.shape[2] != 46:
             
@@ -488,3 +606,143 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
         if len(all_ensembles) == 1:
             
             data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
+
+            
+def gpcp_hindcast_anomalies(parent_directory, variable='precip',
+                            start_range='1999-01-01', end_range='2019-12-31',
+                            save=False, author=None,):
+    """
+    Create GPCP Version 2.3 Combined Precipitation Data Set anomalies.
+    
+    Args:
+        parent_directory (str): Directory where climatology is located and where to save anomalies 
+                                (e.g., '/glade/scratch/$USER/s2s/').
+        variable (str): Name of variable. Defaults to precip for GPCP.
+        start_range (str): Start range of analysis. Defaults to '1999-01-01'.
+        end_range (str): End range of analysis. Defaults to '2019-12-31'.
+        save (boolean): Set to True if want to save climatology as netCDF. Defaults to False.
+        author (str): Author of file. Defaults to None.
+        
+    """
+    if save:
+        
+        assert isinstance(author, str), "Please set author for file saving."
+
+    assert isinstance(parent_directory, str), "Please set parent_directory to save file to."
+    
+    # -- open and smooth obs climo
+
+    clima = xr.open_dataset(f'{parent_directory}CESM2_OBS/{variable.lower()}_clim_gpcp_data.nc')
+
+    climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time')
+
+    climSmooth = climCyclical.rolling(time=31, min_periods=1, center=True).mean(skipna=True).rolling(
+                                      time=31, min_periods=1, center=True).mean(skipna=True)
+
+    climSmooth = climSmooth.isel(time=slice(365,365 * 2))
+    climSmooth = climSmooth.transpose('time','lat','lon')
+
+    # -- reduce mem usage
+
+    del climCyclical
+    del clima
+
+    # -- add lead time to climo
+
+    climCyclicalObs = xr.concat([climSmooth, climSmooth, climSmooth], dim='time')
+
+    climFinal = np.zeros((climSmooth.shape[0],45,climSmooth.shape[1],climSmooth.shape[2]))
+
+    for i in range(365):
+
+        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+45,:,:]
+
+    # -- create time arrays for subsequent indexing
+
+    d_mon = pd.date_range(start=start_range, end=end_range, freq='W-MON')
+    d_dly = pd.date_range(start=start_range, end=end_range, freq='D')
+
+    for num, (yr, mo, day) in enumerate(zip(d_dly.strftime("%Y"),d_dly.strftime("%m"),d_dly.strftime("%d"))):
+
+        if calendar.isleap(int(yr)):
+
+            if mo == '02' and day == '29':
+
+                d_dly = d_dly.drop(f'{yr}-02-29')
+
+    for num, (yr, mo, day) in enumerate(zip(d_mon.strftime("%Y"),d_mon.strftime("%m"),d_mon.strftime("%d"))):
+
+        if calendar.isleap(int(yr)):
+
+            if mo == '02' and day == '29':
+
+                d_mon = d_mon.drop(f'{yr}-02-29')
+
+    # -- create daily obs for final anom computation
+    
+    filelist2 = gpcp_filelist(parent_directory='/glade/work/molina/GPCP',
+                              start=start_range, 
+                              end=str(int((end_range)[:4])+1)+'-12-31')
+
+    varObs = np.zeros((len(filelist2), 180, 360))
+
+    doy = 0
+    yr = 0
+    for num, file in enumerate(filelist2):
+
+        ds = xr.open_dataset(file)
+        ds = ds[variable].isel(time=0)
+        ds = ds.where(ds>=0.,0.)  # valid range: [0.,100.]
+        ds = ds.where(ds<=100.,100.)
+        
+        if num == 0:
+            
+            lats = ds.latitude.values
+            lons = ds.longitude.values
+
+        varObs[num,:,:] = ds.values
+
+    # -- add lead time to daily obs
+
+    varFinal = np.zeros((int(len(d_mon)), 45, 180, 360))
+
+    for num, i in enumerate(d_mon):
+
+        varFinal[num,:,:,:] = varObs[int(np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+45,:,:]
+
+    # -- compute obs anomalies
+
+    anom = np.zeros((int(len(d_mon)), 45, 180, 360))
+
+    for num, i in enumerate(d_mon):
+
+        doy_indx = i.dayofyear - 1
+
+        if calendar.isleap(int(i.year)) and i.month > 2:
+
+            doy_indx = doy_indx - 1
+
+        anom[num,:,:,:] = varFinal[num,:,:,:] - climFinal[doy_indx,:,:,:]
+
+    # --
+    
+    data_assemble = xr.Dataset({
+                         'anom': (['time','lead','lat','lon'], anom),
+                         'date_range': (['date_range'], d_mon),
+                        },
+                         coords =
+                        {'lead': (['lead'], np.arange(0,anom.shape[1],1)),
+                         'time': (['time'], np.arange(1,anom.shape[0]+1,1)),
+                         'lat' : (['lat'], lats),
+                         'lon' : (['lon'], lons)
+                        },
+                        attrs = 
+                        {'File Author' : author})
+    
+    if not save:
+        
+        return data_assemble
+    
+    if save:
+            
+        data_assemble.to_netcdf(f'{parent_directory}CESM2_OBS/{variable.lower()}_anom_gpcp_data.nc')
