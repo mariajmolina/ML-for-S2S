@@ -190,19 +190,34 @@ def create_landmask(path, variable='pr', region=None):
     return ds, lt, ln
 
 
-def process_ensemble_members(path, variable='pr_sfc', leadopt='weekly', day_init=15, day_end=21, region=None):
+def process_ensemble_members(path, variable='pr_sfc', lead_option='weekly', day_init=15, day_end=21, region=None):
     """
     Open and process the 11 ensemble members for training.
     
     Args:
         path (str): directory path to data.
         variable (str): variable choice. defaults to pr_sfc.
-        leadopt (str): choice for time selection. defaults to ``weekly``. Other: ``daily``.
+        lead_option (str): choice for time selection. defaults to ``weekly``. Other: ``daily``.
         day_init (int): first lead day selection. defaults to 15.
         day_end (int): last lead day selection. defaults to 21.
         region (str): string representation of region. defaults to None.
     
+    ::Lead time indices for reference::
+
+    Week 1:  1,  2,  3,  4,  5,  6,  7
+    Week 2:  8,  9, 10, 11, 12, 13, 14
+    Week 3: 15, 16, 17, 18, 19, 20, 21
+    Week 4: 22, 23, 24, 25, 26, 27, 28
+    Week 5: 29, 30, 31, 32, 33, 34, 35
+    Week 6: 36, 37, 38, 39, 40, 41, 42
+    
     """
+    if variable == 'pr':
+        variable = 'pr_sfc'
+    
+    assert variable == 'pr_sfc' or variable == 'tas_2m', 'variable options include pr_sfc or tas_2m'
+    assert lead_option == 'weekly' or lead_option == 'daily', 'lead_option includes weekly or daily'
+        
     ds00 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_00member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887)) # edit these once cesm2 files > 2015
     ds01 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_01member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
     ds02 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_02member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
@@ -215,7 +230,7 @@ def process_ensemble_members(path, variable='pr_sfc', leadopt='weekly', day_init
     ds09 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_09member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
     ds10 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_10member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
     
-    if leadopt == 'weekly':
+    if lead_option == 'weekly':
         
         ds00 = select_biweekly(ds00, day_init, day_end)
         ds01 = select_biweekly(ds01, day_init, day_end)
@@ -229,7 +244,7 @@ def process_ensemble_members(path, variable='pr_sfc', leadopt='weekly', day_init
         ds09 = select_biweekly(ds09, day_init, day_end)
         ds10 = select_biweekly(ds10, day_init, day_end)
     
-    if leadopt == 'daily':
+    if lead_option == 'daily':
         
         ds00 = select_daily(ds00, day_init, day_end)
         ds01 = select_daily(ds01, day_init, day_end)
@@ -260,23 +275,23 @@ def process_ensemble_members(path, variable='pr_sfc', leadopt='weekly', day_init
                 ds04['anom'], ds05['anom'], ds06['anom'], ds07['anom'], 
                 ds08['anom'], ds09['anom'], ds10['anom']], dim='time')
     
-    if leadopt == 'weekly':
+    if lead_option == 'weekly':
         
         return dstotal.to_dataset().transpose('time','lat','lon')
     
-    if leadopt == 'daily':
+    if lead_option == 'daily':
         
         return dstotal.to_dataset().transpose('time','lead','lat','lon')
 
 
-def process_cpc_testdata(path, variable='pr', leadopt='weekly', day_init=15, day_end=21, region=None):
+def process_cpc_testdata(path, variable='pr', lead_option='weekly', day_init=15, day_end=21, region=None):
     """
     Open and process the CPC data for 11 ensemble members for training.
     
     Args:
         path (str): directory path to data.
         variable (str): variable for analysis.
-        leadopt (str): choice for time selection. Defaults to ``weekly``. Other: ``daily``.
+        lead_option (str): choice for time selection. Defaults to ``weekly``. Other: ``daily``.
         day_init (int): first lead day selection. Defaults to 15.
         day_end (int): last lead day selection. Defaults to 21.
         region (str): string representation of region. Defaults to None.
@@ -284,11 +299,11 @@ def process_cpc_testdata(path, variable='pr', leadopt='weekly', day_init=15, day
     """
     ds00 = xr.open_dataset(f'{path}/{variable}_anom_CPC_Mon_data.nc').isel(time=slice(0,887)) # edit this once cesm2 files > 2015
     
-    if leadopt == 'weekly':
+    if lead_option == 'weekly':
         
         ds00 = select_biweekly(ds00, day_init, day_end)
         
-    if leadopt == 'daily':
+    if lead_option == 'daily':
         
         ds00 = select_daily(ds00, day_init, day_end)
     
@@ -299,16 +314,60 @@ def process_cpc_testdata(path, variable='pr', leadopt='weekly', day_init=15, day
                 ds00['anom'], ds00['anom'], ds00['anom'], ds00['anom'], 
                 ds00['anom'], ds00['anom'], ds00['anom']], dim='time')
     
-    if leadopt == 'weekly':
+    if lead_option == 'weekly':
         
         return dstotal.to_dataset().transpose('time','lat','lon')
     
-    if leadopt == 'daily':
+    if lead_option == 'daily':
         
         return dstotal.to_dataset().transpose('time','lead','lat','lon')
+    
+    
+def process_gpcp_testdata(path, lead_option='weekly', day_init=15, day_end=21, region=None):
+    """
+    Open and process the GPCP data for 11 ensemble members for training.
+    
+    Args:
+        path (str): directory path to data.
+        variable (str): variable for analysis.
+        lead_option (str): choice for time selection. Defaults to ``weekly``. Other: ``daily``.
+        day_init (int): first lead day selection. Defaults to 15.
+        day_end (int): last lead day selection. Defaults to 21.
+        region (str): string representation of region. Defaults to None.
+        
+    """
+    ds00 = xr.open_dataset(f'{path}/precip_anom_gpcp_data.nc').isel(time=slice(0,887),date_range=slice(0,887)) # edit this once cesm2 files > 2015
+    
+    if lead_option == 'weekly':
+        
+        ds00 = select_biweekly(ds00, day_init, day_end)
+        
+    if lead_option == 'daily':
+        
+        ds00 = select_daily(ds00, day_init, day_end)
+    
+    ds00 = select_region(ds00, region=region)
+    
+    thedate = xr.concat([
+                ds00['date_range'], ds00['date_range'], ds00['date_range'], ds00['date_range'], 
+                ds00['date_range'], ds00['date_range'], ds00['date_range'], ds00['date_range'], 
+                ds00['date_range'], ds00['date_range'], ds00['date_range']], dim='date_range')
+    
+    dstotal = xr.concat([
+                ds00['anom'], ds00['anom'], ds00['anom'], ds00['anom'], 
+                ds00['anom'], ds00['anom'], ds00['anom'], ds00['anom'], 
+                ds00['anom'], ds00['anom'], ds00['anom']], dim='time')
+    
+    if lead_option == 'weekly':
+        
+        return dstotal.to_dataset().transpose('time','lat','lon'), thedate
+    
+    if lead_option == 'daily':
+        
+        return dstotal.to_dataset().transpose('time','lead','lat','lon'), thedate
 
 
-def process_single_member(path, member, variable='pr_sfc', leadopt='weekly', day_init=15, day_end=21, region=None):
+def process_single_member(path, member, variable='pr_sfc', lead_option='weekly', day_init=15, day_end=21, region=None):
     """
     Open and process single ensemble member for training.
     
@@ -316,7 +375,7 @@ def process_single_member(path, member, variable='pr_sfc', leadopt='weekly', day
         path (str): directory path to data.
         member (str): ensemble member.
         variable (str): variable for analysis. defaults to pr_sfc.
-        leadopt (str): choice for time selection. defaults to weekly. other is daily.
+        lead_option (str): choice for time selection. defaults to weekly. other is daily.
         day_init (int): first lead day selection. defaults to 15.
         day_end (int): last lead day selection. defaults to 21.
         region (str): string representation of region. defaults to None.
@@ -326,34 +385,34 @@ def process_single_member(path, member, variable='pr_sfc', leadopt='weekly', day
         f'{path}/{variable}_anom_cesm2cam6v2_{member}member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887)) 
     # edit this once cesm2 files > 2015
 
-    if leadopt == 'weekly':
+    if lead_option == 'weekly':
         
         ds00 = select_biweekly(ds00, day_init, day_end)
         
-    if leadopt == 'daily':
+    if lead_option == 'daily':
         
         ds00 = select_daily(ds00, day_init, day_end)
     
     ds00 = select_region(ds00, region=region)
     dstotal = ds00['anom']
     
-    if leadopt == 'weekly':
+    if lead_option == 'weekly':
         
         return dstotal.to_dataset().transpose('time','lat','lon')
 
-    if leadopt == 'daily':
+    if lead_option == 'daily':
         
         return dstotal.to_dataset().transpose('time','lead','lat','lon')
 
 
-def process_single_cpc(path, variable='pr', leadopt='weekly', day_init=15, day_end=21, region=None):
+def process_single_cpc(path, variable='pr', lead_option='weekly', day_init=15, day_end=21, region=None):
     """
     Open and process the CPC data for single ensemble member for training.
     
     Args:
         path (str): directory path to data.
         variable (str): variable for analysis. defaults to pr.
-        leadopt (str): choice for time selection. defaults to weekly. other is daily.
+        lead_option (str): choice for time selection. defaults to weekly. other is daily.
         day_init (int): first lead day selection. defaults to 15.
         day_end (int): last lead day selection. defaults to 21.
         region (str): string representation of region. defaults to None.
@@ -361,25 +420,50 @@ def process_single_cpc(path, variable='pr', leadopt='weekly', day_init=15, day_e
     """
     ds00 = xr.open_dataset(f'{path}/{variable}_anom_CPC_Mon_data.nc').isel(time=slice(0,887)) # edit this once cesm2 files > 2015
     
-    if leadopt == 'weekly':
+    if lead_option == 'weekly':
         
         ds00 = select_biweekly(ds00, day_init, day_end)
         
-    if leadopt == 'daily':
+    if lead_option == 'daily':
         
         ds00 = select_daily(ds00, day_init, day_end)
         
     ds00 = select_region(ds00, region=region)
     dstotal = ds00['anom']
     
-    if leadopt == 'weekly':
+    if lead_option == 'weekly':
         
         return dstotal.to_dataset().transpose('time','lat','lon')
 
-    if leadopt == 'daily':
+    if lead_option == 'daily':
         
         return dstotal.to_dataset().transpose('time','lead','lat','lon')
     
+
+def only_flatten_data(ds):
+    """
+    Preprocessing of model data for deep learning model.
+    
+    Args:
+        ds: xarray dataset.
+        
+    """ 
+    ds_ = ds['anom']
+    ds_ = ds_.stack(dim_0=['lat','lon']).reset_index('dim_0').drop(['lat','lon'])
+    
+    try:
+        
+        ds_.coords['lead']
+        ds_ = ds_.stack(dim_1=['dim_0','lead']).reset_index('dim_1').drop(['dim_0','lead'])
+        ds_ = ds_.rename({'dim_1':'dim_0'})
+        ds_ = ds_.where(np.isfinite(ds_), drop=True)
+        
+    except KeyError:
+        
+        ds_ = ds_.where(np.isfinite(ds_), drop=True)
+    
+    return ds_.values.astype(np.float32)
+
 
 def mask_and_flatten_data(ds, land_mask):
     """
@@ -416,6 +500,31 @@ def mask_and_flatten_data(ds, land_mask):
     return ds_.values.astype(np.float32)
 
 
+def visual_data_process(ds):
+    """
+    Preprocessing of model data for deep learning model.
+    
+    Args:
+        ds: xarray dataset.
+        land_mask (ndarray): land mask.
+        
+    """ 
+    ds_ = ds['anom']
+    
+    try:
+    
+        ds_.coords['lead']
+        ds_ = ds_.transpose('time','lead','lat','lon')
+        
+    except KeyError:
+        
+        ds_ = ds_.transpose('time','lat','lon')
+        
+    ds_ = ds_.where(np.isfinite(ds_), 0.)
+    
+    return ds_.values.astype(np.float32)
+
+
 def mask_and_flatten_latweights(ds_, land_mask):
     """
     Preprocessing of latitude weights for training loss.
@@ -428,6 +537,21 @@ def mask_and_flatten_latweights(ds_, land_mask):
     ds_ = xr.where(np.isnan(land_mask), np.nan, ds_.transpose('lat','lon'))
     ds_ = ds_.stack(dim_0=['lat','lon']).reset_index('dim_0').drop(['lat','lon'])
     ds_ = ds_.where(np.isfinite(ds_), drop=True)
+    
+    return ds_.values.astype(np.float32)
+
+
+def visual_data_process_latweights(ds):
+    """
+    Preprocessing of model data for deep learning model.
+    
+    Args:
+        ds: xarray dataset.
+        land_mask (ndarray): land mask.
+        
+    """ 
+    ds_ = ds.transpose('lat','lon')
+    ds_ = ds_.where(np.isfinite(ds_), 0.)
     
     return ds_.values.astype(np.float32)
 
@@ -461,6 +585,25 @@ def remove_any_nans(fct, obs, return_indx=True):
     if not return_indx:
         
         return fct, obs
+    
+    
+def rematch_indices(fct, obs):
+    """
+    Recreate indices for training and validation sets.
+    
+    Args:
+        fct (ndarray): forecast data
+        obs (ndarray): observation data
+        return_indx (boolean): whether to return indices for later 
+                               data parsing (e.g., validation, testing).
+                               defaults to True.
+    
+    """
+    assert obs.shape[0] == fct.shape[0], "mismatch in obs and fct data"
+    
+    index_return = np.arange(obs.shape[0])
+    
+    return index_return
 
 
 def random_test_split(array, seed=0, train=0.8):
@@ -496,7 +639,7 @@ def year_test_split(dates, indx, yrs_subset):
         indx (ndarray): indices from `remove_any_nans`
         yrs_subset (list): list of years (int) to set aside for validation/evaluation
         
-    Note: femaining years go to training.
+    Note: remaining years go to training.
     
     """
     assert isinstance(yrs_subset, list), "yrs_subset should be a list"
@@ -588,7 +731,7 @@ def save_decoded_image(img, name=None):
     
     img = np.squeeze(img)
     
-    plt.figure(figsize=(6,10))
+    plt.figure(figsize=(4,12))
     
     for i, v in enumerate(range(number_of_subplots)):
         

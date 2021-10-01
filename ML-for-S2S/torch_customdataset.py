@@ -36,7 +36,7 @@ class CustomDataset(Dataset):
         if self.target_transform:
             label = self.target_transform(label)
             
-        return {'train': image, 'test': label}
+        return {'train': image, 'test': label, 'minibatch_indx': idx}
     
     
 class CustomLSTMDataset(Dataset):
