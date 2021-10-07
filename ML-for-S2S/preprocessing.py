@@ -208,6 +208,81 @@ def cesm2_filelist(variable, parent_directory, ensemble, start='1999-01-01', end
     return matches
 
 
+def era5_temp_climatology(obs_directory, save_directory, start='1999-01-01', end='2020-12-31', 
+                          save=False, author=None):
+    """
+    Create ERA5 temperature hindcast climatology. Outputs array (365, lat, lon).
+    
+    Args:
+        obs_directory (str): Directory where files are located.
+        save_directory (str): Directory where to save files.
+        start (str): Start of hindcasts. Defaults to '1999-01-01'.
+        end (str): End of hindcasts. Defaults to '2020-12-31'.
+        save (boolean): Set to True if want to save climatology as netCDF. Defaults to False.
+        author (str): Author of file. Defaults to None.
+                                
+    """
+    td = pd.date_range(start=start, end=end, freq='D')
+    td = td[~((td.day==29)&(td.month==2))]
+
+    doy = 0
+    yr = 0
+    dates = []
+    years = []
+
+    for num, t in enumerate(td):
+
+        tmax = xr.open_dataset(
+            f"{obs_directory}era5_tmax/e5.oper.fc.sfc.minmax.128_201_mx2t.ll025sc.{t.strftime('%Y%m%d')}.nc")['MX2T']
+
+        tmin = xr.open_dataset(
+            f"{obs_directory}era5_tmin/e5.oper.fc.sfc.minmax.128_202_mn2t.ll025sc.{t.strftime('%Y%m%d')}.nc")['MN2T']
+
+        avg_temp = (tmin + tmax) / 2
+
+        dates.append(pd.Timestamp(t.strftime('%Y%m%d')))
+
+        if num == 0:
+
+            clim = np.zeros((td.year.unique().shape[0],365,avg_temp.shape[0],avg_temp.shape[1]))
+
+            lats = tmin.latitude.values
+            lons = tmin.longitude.values
+
+        clim[yr,doy,:,:] = avg_temp
+
+        doy += 1
+
+        if doy == 365:
+
+            doy = 0
+            yr += 1
+
+            years.append(int(t.strftime('%Y')))
+
+
+    data_assemble = xr.Dataset({
+                         'clim': (['time','lat','lon'], np.nanmean(clim, axis=0)),
+                        },
+                         coords =
+                        {'date_range': (['date_range'], pd.to_datetime(dates)),
+                         'time': (['time'], np.arange(1,365 + 1,1)),
+                         'lat' : (['lat'], lats),
+                         'lon' : (['lon'], lons)
+                        },
+                        attrs = 
+                        {'File Author' : author,
+                         'Years' : np.array(years)})
+
+    if not save:
+
+        return data_assemble
+
+    if save:
+
+        data_assemble.to_netcdf(f'{save_directory}era5_temp_clim_gpcp_data.nc')
+
+
 def gpcp_climatology(filelist, variable='precip', save=False, author=None, parent_directory=None):
     """
     Create GPCP Version 2.3 Combined Precipitation Data Set climatology.
@@ -686,8 +761,6 @@ def gpcp_hindcast_anomalies(parent_directory, variable='precip',
 
     varObs = np.zeros((len(filelist2), 180, 360))
 
-    doy = 0
-    yr = 0
     for num, file in enumerate(filelist2):
 
         ds = xr.open_dataset(file)
@@ -746,3 +819,121 @@ def gpcp_hindcast_anomalies(parent_directory, variable='precip',
     if save:
             
         data_assemble.to_netcdf(f'{parent_directory}CESM2_OBS/{variable.lower()}_anom_gpcp_data.nc')
+
+
+def era5_temp_anomalies(obs_directory, save_directory, start_range='1999-01-01', end_range='2019-12-31',
+                        save=False, author=None):
+    """
+    Create ERA5 temperature hindcast anomalies.
+    
+    Args:
+        obs_directory (str): Directory where files are located.
+        save_directory (str): Directory where to save files.
+        start (str): Start of hindcasts. Defaults to '1999-01-01'.
+        end (str): End of hindcasts. Defaults to '2020-12-31'.
+        save (boolean): Set to True if want to save climatology as netCDF. Defaults to False.
+        author (str): Author of file. Defaults to None.
+        
+    """
+    # -- open and smooth obs climo
+
+    clima = xr.open_dataset(f'{save_directory}era5_temp_clim_gpcp_data.nc')
+
+    climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time')
+
+    climSmooth = climCyclical.rolling(time=31, min_periods=1, center=True).mean(skipna=True).rolling(
+                                      time=31, min_periods=1, center=True).mean(skipna=True)
+
+    climSmooth = climSmooth.isel(time=slice(365,365 * 2))
+    climSmooth = climSmooth.transpose('time','lat','lon')
+
+    # -- reduce mem usage
+
+    del climCyclical
+    del clima
+
+    # -- add lead time to climo
+
+    climCyclicalObs = xr.concat([climSmooth, climSmooth, climSmooth], dim='time')
+
+    climFinal = np.zeros((climSmooth.shape[0],45,climSmooth.shape[1],climSmooth.shape[2]))
+
+    for i in range(365):
+
+        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+45,:,:]
+
+    # -- create time arrays for subsequent indexing
+
+    d_mon = pd.date_range(start=start_range, end=end_range, freq='W-MON')
+    d_dly = pd.date_range(start=start_range, end=end_range, freq='D')
+    
+    d_mon = d_mon[~((d_mon.day==29)&(d_mon.month==2))]
+    d_dly = d_dly[~((d_dly.day==29)&(d_dly.month==2))]
+
+    # -- create daily obs for final anom computation
+    
+    d_daily = pd.date_range(start=start_range, end=str(int((end_range)[:4])+1)+'-12-31', freq='D')
+
+    for num, t in enumerate(d_daily):
+
+        tmax = xr.open_dataset(
+            f"{obs_directory}era5_tmax/e5.oper.fc.sfc.minmax.128_201_mx2t.ll025sc.{t.strftime('%Y%m%d')}.nc")['MX2T']
+
+        tmin = xr.open_dataset(
+            f"{obs_directory}era5_tmin/e5.oper.fc.sfc.minmax.128_202_mn2t.ll025sc.{t.strftime('%Y%m%d')}.nc")['MN2T']
+
+        avg_temp = (tmin + tmax) / 2
+
+        if num == 0:
+
+            varObs = np.zeros((len(d_daily),climSmooth.shape[1],climSmooth.shape[2]))
+
+            lats = tmin.latitude.values
+            lons = tmin.longitude.values
+
+        varObs[num,:,:] = avg_temp
+
+    # -- add lead time to daily obs
+
+    varFinal = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+
+    for num, i in enumerate(d_mon):
+
+        varFinal[num,:,:,:] = varObs[int(np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+45,:,:]
+
+    # -- compute obs anomalies
+
+    anom = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+
+    for num, i in enumerate(d_mon):
+
+        doy_indx = i.dayofyear - 1
+
+        if calendar.isleap(int(i.year)) and i.month > 2:
+
+            doy_indx = doy_indx - 1
+
+        anom[num,:,:,:] = varFinal[num,:,:,:] - climFinal[doy_indx,:,:,:]
+
+    # --
+    
+    data_assemble = xr.Dataset({
+                         'anom': (['time','lead','lat','lon'], anom),
+                         'date_range': (['date_range'], d_mon),
+                        },
+                         coords =
+                        {'lead': (['lead'], np.arange(0,anom.shape[1],1)),
+                         'time': (['time'], np.arange(1,anom.shape[0]+1,1)),
+                         'lat' : (['lat'], lats),
+                         'lon' : (['lon'], lons)
+                        },
+                        attrs = 
+                        {'File Author' : author})
+    
+    if not save:
+        
+        return data_assemble
+    
+    if save:
+            
+        data_assemble.to_netcdf(f'{save_directory}era5_temp_anom_gpcp_data.nc')
