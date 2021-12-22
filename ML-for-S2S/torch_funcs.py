@@ -1,11 +1,15 @@
 import os
 import itertools
+from datetime import timedelta
+import calendar
 import numpy as np
 import pandas as pd
 import xarray as xr
 from pylab import *
 import torch
 from torch.autograd import Variable
+import preprocessing
+import xesmf as xe
 
 """
 
@@ -16,6 +20,128 @@ This module contains utility functions for the S2S machine learning project.
 Author: Maria J. Molina, NCAR (molina@ucar.edu)
 
 """
+
+def is_warm_season(month):
+    return (month >= 3) & (month <= 8)
+
+
+def is_cold_season(month):
+    return ((month >= 9) & (month <= 12)) | ((month >= 1) & (month <= 2))
+
+
+def standardize_apply(data, mu, std):
+    return (data - mu) / std
+
+
+def standardize_(data):
+    if type(data) == xr.core.dataarray.DataArray:
+        data = data.values
+    data = data.flatten()
+    mu = np.nanmean(data)
+    std = np.nanstd(data)
+    return mu, std
+
+
+def reverse_standardize(data, mu, std):
+    return (data * std) + mu
+
+
+def min_val(list_):
+    """
+    Compute minimum for normalization.
+    
+    Args:
+        list_ (list): arrays to compute min from.
+    """
+    min_list = []
+    
+    for li in list_:
+        
+        if type(li) == xr.core.dataarray.DataArray:
+            li = li.values
+            
+        li = li.flatten()
+        min_list.append(li.flatten().min())
+        
+    return min(min_list)
+
+
+def max_val(list_):
+    """
+    Compute maximum for normalization.
+    
+    Args:
+        list_ (list): arrays to compute max from.
+    """
+    max_list = []
+    
+    for li in list_:
+        
+        if type(li) == xr.core.dataarray.DataArray:
+            li = li.values
+            
+        li = li.flatten()
+        max_list.append(li.flatten().max())
+        
+    return max(max_list)
+
+
+def norm_(list_):
+    """
+    Compute normalization values.
+    
+    Args:
+        list_ (list): arrays to compute min/max from.
+    """
+    min_ = min_val(list_)
+    max_ = max_val(list_)
+    
+    return min_, max_
+
+
+def norm_apply(list_, min_, max_):
+    """
+    Apply normalization.
+    
+    Args:
+        list_ (list): arrays to apply normalization.
+        min_ (float): minimum value.
+        max_ (float): maximum value.
+    """
+    list_normed = []
+    
+    for num, li in enumerate(list_):
+        
+        list_normed.append((li - min_) / (max_ - min_))
+        
+    if num > 0:
+        return [i for i in list_normed]
+    
+    if num == 0:
+        return list_normed[0]
+
+
+def reverse_norm(list_normed, min_, max_):
+    """
+    Reverse normalization.
+    
+    Args:
+        list_normed (list): arrays to reverse normalization.
+        min_ (float): minimum value.
+        max_ (float): maximum value.
+    """
+    list_ = []
+    
+    for num, li in enumerate(list_normed):
+        
+        list_.append(li * (max_ - min_) + min_)
+        
+    if num > 0:
+        return [i for i in list_]
+    
+    if num == 0:
+        return list_[0]
+
 
 def pacific_lon(array):
     """
@@ -45,7 +171,12 @@ def compute_lat_weights(ds):
         latitude weights.
         
     """
-    weights = np.cos(np.deg2rad(ds.lat))
+    try:
+        weights = np.cos(np.deg2rad(ds.lat))
+    
+    except AttributeError:
+        weights = np.cos(np.deg2rad(ds.y))
+        
     _, weights = xr.broadcast(ds, weights)
     weights = weights.isel(time=0)
     
@@ -100,6 +231,45 @@ def select_region(ds, region=None):
         
         return ds
 
+    
+def regrid_gpcp(ds, variable, reuse_weights=False, region=None):
+    """
+    Function to regrid GPCP.
+
+    Args:
+        ds (xarray dataset): file.
+        variable (str): variable.
+        reuse_weights (boolean): Whether to use precomputed weights to speed up calculation.
+                                 Defaults to ``False``.
+    Returns:
+        Regridded mask file for use with machine learning model.
+    """
+    dict_region = {'NH':     (30, 90),
+                   'TP':     (-29, 29),
+                   'SH':     (-60, -30),
+                   'NOANT':  (-60, 90),
+                   'FIRST':  (61, 90),
+                   'SECOND': (31, 60),
+                   'THIRD':  (1, 30),
+                   'FOURTH': (-29, 0),
+                   'FIFTH':  (-60, -30),
+                  }
+    
+    if region:
+        
+        ds_out = xe.util.grid_2d(lon0_b=0-0.5, lon1_b=360-0.5, d_lon=1., 
+                                 lat0_b=dict_region[region][0]-0.5, 
+                                 lat1_b=dict_region[region][1], d_lat=1.)
+    
+    if not region:
+        
+        ds_out = xe.util.grid_2d(lon0_b=0-0.5,   lon1_b=360-0.5, d_lon=1., 
+                                 lat0_b=-90-0.5, lat1_b=90,      d_lat=1.)
+
+    regridder = xe.Regridder(ds, ds_out, method='nearest_s2d', reuse_weights=reuse_weights)
+
+    return regridder(ds[variable])
+    
 
 def select_biweekly(ds, day_init=15, day_end=21):
     """
@@ -190,7 +360,28 @@ def create_landmask(path, variable='pr', region=None):
     return ds, lt, ln
 
 
-def process_ensemble_members(path, variable='pr_sfc', lead_option='weekly', day_init=15, day_end=21, region=None):
+def help_model_preprocess_seasons(ds_, season):
+    
+    ds_ = ds_.drop_sel(date_range=np.datetime64('2016-02-28T00:00:00.000000000'))
+    ds_ = ds_.drop_sel(time=1096)
+    
+    if season == 'warm':
+        
+        indx = is_warm_season(ds_['date_range.month']).values
+        ds_ = ds_.isel(date_range=ds_['time'][indx].values - 1)
+        ds_ = ds_.isel(time=ds_['time'][indx].values - 1)
+        
+    if season == 'cold':
+        
+        indx = is_cold_season(ds_['date_range.month']).values
+        ds_ = ds_.isel(date_range=ds_['time'][indx].values - 1)
+        ds_ = ds_.isel(time=ds_['time'][indx].values - 1)
+        
+    return ds_
+    
+    
+def process_ensemble_members(path, variable='pr_sfc', lead_option='weekly', 
+                             day_init=15, day_end=21, region=None, season=None):
     """
     Open and process the 11 ensemble members for training.
     
@@ -201,6 +392,7 @@ def process_ensemble_members(path, variable='pr_sfc', lead_option='weekly', day_
         day_init (int): first lead day selection. defaults to 15.
         day_end (int): last lead day selection. defaults to 21.
         region (str): string representation of region. defaults to None.
+        season (str): string warm or cold for seasonal stratification. Defaults to None.
     
     ::Lead time indices for reference::
 
@@ -217,18 +409,18 @@ def process_ensemble_members(path, variable='pr_sfc', lead_option='weekly', day_
     
     assert variable == 'pr_sfc' or variable == 'tas_2m', 'variable options include pr_sfc or tas_2m'
     assert lead_option == 'weekly' or lead_option == 'daily', 'lead_option includes weekly or daily'
-        
-    ds00 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_00member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887)) # edit these once cesm2 files > 2015
-    ds01 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_01member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds02 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_02member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds03 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_03member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds04 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_04member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds05 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_05member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds06 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_06member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds07 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_07member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds08 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_08member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds09 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_09member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
-    ds10 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_10member_s2s_data.nc').isel(time=slice(0,887),date_range=slice(0,887))
+    
+    ds00 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_00member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds01 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_01member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds02 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_02member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds03 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_03member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds04 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_04member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds05 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_05member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds06 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_06member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds07 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_07member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds08 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_08member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds09 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_09member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
+    ds10 = xr.open_dataset(f'{path}/{variable}_anom_cesm2cam6v2_10member_s2s_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))
     
     if lead_option == 'weekly':
         
@@ -257,6 +449,18 @@ def process_ensemble_members(path, variable='pr_sfc', lead_option='weekly', day_
         ds08 = select_daily(ds08, day_init, day_end)
         ds09 = select_daily(ds09, day_init, day_end)
         ds10 = select_daily(ds10, day_init, day_end)
+        
+    ds00 = help_model_preprocess_seasons(ds00, season)
+    ds01 = help_model_preprocess_seasons(ds01, season)
+    ds02 = help_model_preprocess_seasons(ds02, season)
+    ds03 = help_model_preprocess_seasons(ds03, season)
+    ds04 = help_model_preprocess_seasons(ds04, season)
+    ds05 = help_model_preprocess_seasons(ds05, season)
+    ds06 = help_model_preprocess_seasons(ds06, season)
+    ds07 = help_model_preprocess_seasons(ds07, season)
+    ds08 = help_model_preprocess_seasons(ds08, season)
+    ds09 = help_model_preprocess_seasons(ds09, season)
+    ds10 = help_model_preprocess_seasons(ds10, season)
     
     ds00 = select_region(ds00, region=region)
     ds01 = select_region(ds01, region=region)
@@ -323,21 +527,22 @@ def process_cpc_testdata(path, variable='pr', lead_option='weekly', day_init=15,
         return dstotal.to_dataset().transpose('time','lead','lat','lon')
     
     
-def process_gpcp_testdata(path, lead_option='weekly', day_init=15, day_end=21, region=None):
+def process_gpcp_testdata(path, lead_option='weekly', day_init=15, day_end=21, 
+                          region=None, season=None):
     """
     Open and process the GPCP data for 11 ensemble members for training.
     
     Args:
         path (str): directory path to data.
-        variable (str): variable for analysis.
         lead_option (str): choice for time selection. Defaults to ``weekly``. Other: ``daily``.
         day_init (int): first lead day selection. Defaults to 15.
         day_end (int): last lead day selection. Defaults to 21.
         region (str): string representation of region. Defaults to None.
+        season (str): string warm or cold for seasonal stratification. Defaults to None.
         
     """
-    ds00 = xr.open_dataset(f'{path}/precip_anom_gpcp_data.nc').isel(time=slice(0,887),date_range=slice(0,887)) # edit this once cesm2 files > 2015
-    
+    ds00 = xr.open_dataset(f'{path}/precip_anom_gpcp_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887))# edit this once cesm2 files > 2015
+        
     if lead_option == 'weekly':
         
         ds00 = select_biweekly(ds00, day_init, day_end)
@@ -345,6 +550,18 @@ def process_gpcp_testdata(path, lead_option='weekly', day_init=15, day_end=21, r
     if lead_option == 'daily':
         
         ds00 = select_daily(ds00, day_init, day_end)
+    
+    if season == 'warm':
+        
+        indx = is_warm_season(ds00['date_range.month']).values
+        ds00 = ds00.isel(date_range=ds00['time'][indx].values - 1)
+        ds00 = ds00.isel(time=ds00['time'][indx].values - 1)
+        
+    if season == 'cold':
+        
+        indx = is_cold_season(ds00['date_range.month']).values
+        ds00 = ds00.isel(date_range=ds00['time'][indx].values - 1)
+        ds00 = ds00.isel(time=ds00['time'][indx].values - 1)
     
     ds00 = select_region(ds00, region=region)
     
@@ -367,7 +584,69 @@ def process_gpcp_testdata(path, lead_option='weekly', day_init=15, day_end=21, r
         return dstotal.to_dataset().transpose('time','lead','lat','lon'), thedate
 
 
-def process_single_member(path, member, variable='pr_sfc', lead_option='weekly', day_init=15, day_end=21, region=None):
+def process_era5_testdata(path, lead_option='weekly', day_init=15, day_end=21, 
+                          region=None, season=None):
+    """
+    Open and process the ERA5 temperature data for 11 ensemble members for training.
+    
+    Args:
+        path (str): directory path to data.
+        lead_option (str): choice for time selection. Defaults to ``weekly``. Other: ``daily``.
+        day_init (int): first lead day selection. Defaults to 15.
+        day_end (int): last lead day selection. Defaults to 21.
+        region (str): string representation of region. Defaults to None.
+        season (str): string warm or cold for seasonal stratification. Defaults to None.
+        
+    """
+    ds00 = xr.open_dataset(f'{path}/era5_temp_anom_data.nc')#.isel(time=slice(0,887),date_range=slice(0,887)) # edit this once cesm2 files > 2015
+    
+    ds00.coords['lat']  = np.arange(-90.,91.,1).astype(float32)
+    ds00.coords['lon']  = np.arange(0.,360.,1).astype(float32)
+    ds00.coords['lead'] = np.arange(1.,46.,1).astype(float32)
+    
+    if lead_option == 'weekly':
+        
+        ds00 = select_biweekly(ds00, day_init, day_end)
+        
+    if lead_option == 'daily':
+        
+        ds00 = select_daily(ds00, day_init, day_end)
+        
+    if season == 'warm':
+        
+        indx = is_warm_season(ds00['date_range.month']).values
+        ds00 = ds00.isel(date_range=ds00['time'][indx].values - 1)
+        ds00 = ds00.isel(time=ds00['time'][indx].values - 1)
+        
+    if season == 'cold':
+        
+        indx = is_cold_season(ds00['date_range.month']).values
+        ds00 = ds00.isel(date_range=ds00['time'][indx].values - 1)
+        ds00 = ds00.isel(time=ds00['time'][indx].values - 1)
+    
+    ds00 = select_region(ds00, region=region)
+    
+    thedate = xr.concat([
+                ds00['date_range'], ds00['date_range'], ds00['date_range'], ds00['date_range'], 
+                ds00['date_range'], ds00['date_range'], ds00['date_range'], ds00['date_range'], 
+                ds00['date_range'], ds00['date_range'], ds00['date_range']], dim='date_range')
+    
+    dstotal = xr.concat([
+                ds00['anom'], ds00['anom'], ds00['anom'], ds00['anom'], 
+                ds00['anom'], ds00['anom'], ds00['anom'], ds00['anom'], 
+                ds00['anom'], ds00['anom'], ds00['anom']], dim='time')
+    
+    if lead_option == 'weekly':
+        
+        return dstotal.to_dataset().transpose('time','lat','lon'), thedate
+    
+    if lead_option == 'daily':
+        
+        return dstotal.to_dataset().transpose('time','lead','lat','lon'), thedate
+    
+
+def process_single_member(path, member, variable='pr_sfc', lead_option='weekly', 
+                          day_init=15, day_end=21, region=None):
     """
     Open and process single ensemble member for training.
     
@@ -518,7 +797,13 @@ def visual_data_process(ds):
         
     except KeyError:
         
-        ds_ = ds_.transpose('time','lat','lon')
+        try:
+            
+            ds_ = ds_.transpose('time','lat','lon')
+            
+        except ValueError:
+            
+            ds_ = ds_.transpose('time','y','x')
         
     ds_ = ds_.where(np.isfinite(ds_), 0.)
     
@@ -550,7 +835,12 @@ def visual_data_process_latweights(ds):
         land_mask (ndarray): land mask.
         
     """ 
-    ds_ = ds.transpose('lat','lon')
+    try:
+        ds_ = ds.transpose('lat','lon')
+        
+    except ValueError:
+        ds_ = ds.transpose('y','x')
+        
     ds_ = ds_.where(np.isfinite(ds_), 0.)
     
     return ds_.values.astype(np.float32)
@@ -864,3 +1154,66 @@ def weighted_rmse_loss(output, label, lat_weights):
     loss = torch.sqrt(out.mean())
     
     return loss
+
+
+def climo_variable(path, date_array, day_init, day_end, variable='pr', region=None):
+    """
+    Open and process the climo for training.
+    
+    Args:
+        path (str): directory path to data.
+        date_array
+        day_init (int): first lead day selection.
+        day_end (int): last lead day selection.
+        variable (str): variable for analysis. defaults to pr.
+        region (str): string representation of region. defaults to None.
+        
+    """
+    if 'pr' in variable:
+        ds_clim = xr.open_dataset(f'/{path}/precip_clim_gpcp_data.nc')['clim']
+        
+    if 't' in variable:
+        ds_clim = xr.open_dataset(f'/{path}/era5_temp_clim_data.nc')['clim']
+        ds_clim.coords['lat'] = np.arange(-90.,91.,1).astype(float32)
+        ds_clim.coords['lon'] = np.arange(0.,360.,1).astype(float32)
+        
+    ds_clim = select_region(ds_clim, region)
+    
+    ds_clim_avg = ds_clim.mean('time',skipna=True).values
+    ds_clim_std = ds_clim.std('time',skipna=True).values
+    
+    lead_time_ints = np.arange(day_init, day_end + 1, 1)
+    
+    converted_dates = {}
+    
+    for dt in date_array:
+        
+        tmp_array = []
+        
+        for i in lead_time_ints:
+            
+            tmp = dt + timedelta(days=int(i))
+            
+            if not calendar.isleap(tmp.year):
+                
+                tmp_array.append(int(tmp.strftime('%j')))
+                
+            if calendar.isleap(tmp.year):
+                
+                if tmp.month > 2 or tmp.month == 2 and tmp.day == 29:
+                    tmp_array.append(int(tmp.strftime('%j')) - 1)
+                    
+                else:
+                    tmp_array.append(int(tmp.strftime('%j')))
+                    
+        converted_dates[dt] = np.array(tmp_array)
+    
+    clim_t = np.zeros((date_array.shape[0],ds_clim.lat.shape[0],ds_clim.lon.shape[0]))
+    
+    for num, dt in enumerate(date_array):
+        
+        ntmp = ds_clim.isel(time=converted_dates[dt] - 1).mean('time',skipna=True)
+        
+        clim_t[num,:,:] = (ntmp.values - ds_clim_avg) / ds_clim_std
+        
+    return clim_t
