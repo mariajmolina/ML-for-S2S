@@ -797,6 +797,9 @@ def era5_variable_regrid(obs_directory, variable, start_range='1999-01-01', end_
     if variable == "ttrc":
         var = "TTRC"; filename = "e5.oper.fc.sfc.accumu.128_209_ttrc.ll025sc"; constant=1/86400
         
+    if variable == "tp":
+        var = "TP"; filename = "e5.oper.fc.sfc.accumu.128_142_tp.ll025sc"; constant=1
+        
     for num, t in enumerate(d_daily):
         
         ds_ = xr.open_dataset(f"{obs_directory}/era5_{variable}/{filename}.{t.strftime('%Y%m%d')}.nc")
@@ -830,6 +833,9 @@ def era5_variable_climatology(obs_directory, save_directory, variable, start='19
         
     if variable == "ttrc":
         var = "TTRC"; filename = "e5.oper.fc.sfc.accumu.128_209_ttrc.ll025sc"
+        
+    if variable == "tp":
+        var = "TP"; filename = "e5.oper.fc.sfc.accumu.128_142_tp.ll025sc"
         
     td = pd.date_range(start=start, end=end, freq='D')
     td = td[~((td.day==29)&(td.month==2))]
@@ -985,6 +991,9 @@ def era5_variable_anomalies(obs_directory, save_directory, variable,
         
     if variable == "ttrc":
         var = "TTRC"; filename = "e5.oper.fc.sfc.accumu.128_209_ttrc.ll025sc"
+        
+    if variable == "tp":
+        var = "TP"; filename = "e5.oper.fc.sfc.accumu.128_142_tp.ll025sc"
         
     # -- open and smooth obs climo
 
