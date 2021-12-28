@@ -11,7 +11,7 @@ Author: Maria J. Molina, NCAR (molina@ucar.edu)
 
 """
 
-def start_som(subsetarray, input_length, som_grid_rows, som_grid_columns, 
+def start_som(data, input_length, som_grid_rows, som_grid_columns, 
               sigma=0.3, learning_rate=0.5, decay_function=asymptotic_decay, 
               neighborhood_function='gaussian', 
               topology='rectangular', activation_distance='euclidean', random_seed=1,
@@ -44,10 +44,6 @@ def start_som(subsetarray, input_length, som_grid_rows, som_grid_columns,
                   learning_rate, decay_function, neighborhood_function,
                   topology, activation_distance, random_seed) 
     
-    data = subsetarray
-    
-    data = data.fillna(0.0).values
-    
     if not pca_weights:
         
         som.random_weights_init(data)
@@ -63,10 +59,11 @@ def start_som(subsetarray, input_length, som_grid_rows, som_grid_columns,
             verbose)
     
     # grabbing indices from SOM; create an empty dictionary using the rows and columns of SOM
-    keys = [i for i in product(range(som_grid_rows),range(som_grid_columns))]
+    
+    keys = [i for i in product(range(som_grid_rows), range(som_grid_columns))]
     winmap = {key: [] for key in keys}
     
-    for i, x in enumerate(subsetarray.values): # grab the indices for the data within the SOM lattice
+    for i, x in enumerate(data): # grab the indices for the data within the SOM lattice
         
         winmap[som.winner(x)].append(i)
         

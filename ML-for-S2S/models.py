@@ -360,31 +360,31 @@ class CNNAutoencoder(nn.Module):
         self.unpool = nn.MaxUnpool2d(2, 2)
         
     def forward(self, x):
-        
+        #print(x.size())
         # encode
         x = F.relu(self.enc1(x))
         x, indx1 = self.pool(x)
-        
+        #print(x.size())
         x = F.relu(self.enc2(x))
         x, indx2 = self.pool(x)
-        
+        #print(x.size())
         x = F.relu(self.enc3(x))
         x, indx3 = self.pool(x)
-        
+        #print(x.size())
         # latent space
         x = F.relu(self.ltnt(x))
-        
+        #print(x.size())
         # decode
         x = self.unpool(x, indx3, output_size=indx2.size())
         x = F.relu(self.dec3(x))
-        
+        #print(x.size())
         x = self.unpool(x, indx2, output_size=indx1.size())
         x = F.relu(self.dec2(x))
-        
+        #print(x.size())
         x = self.unpool(x, indx1)
         x = F.relu(self.dec1(x))
-        
+        #print(x.size())
         # output
         x = self.out(x)
-        
+        #print(x.size())
         return x
