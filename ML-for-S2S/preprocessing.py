@@ -856,8 +856,8 @@ def era5_variable_climatology(obs_directory, save_directory, variable, start='19
 
             clim = np.zeros((td.year.unique().shape[0],365,ds_.shape[0],ds_.shape[1]))
 
-            lats = ds_.y.values
-            lons = ds_.x.values
+            lats = ds_.lat[:,0].values
+            lons = ds_.lon[0,:].values
 
         clim[yr,doy,:,:] = ds_.values
 
@@ -930,8 +930,8 @@ def era5_temp_climatology(obs_directory, save_directory, start='1999-01-01', end
 
             clim = np.zeros((td.year.unique().shape[0],365,avg_temp.shape[0],avg_temp.shape[1]))
 
-            lats = tmin.y.values
-            lons = tmin.x.values
+            lats = ds_.lat[:,0].values
+            lons = ds_.lon[0,:].values
 
         clim[yr,doy,:,:] = avg_temp
 
@@ -1044,8 +1044,8 @@ def era5_variable_anomalies(obs_directory, save_directory, variable,
 
             varObs = np.zeros((len(d_daily),climSmooth.shape[1],climSmooth.shape[2]))
 
-            lats = ds_.y.values
-            lons = ds_.x.values
+            lats = ds_.lat[:,0].values
+            lons = ds_.lon[0,:].values
 
         varObs[num,:,:] = ds_.values
 
@@ -1163,8 +1163,8 @@ def era5_temp_anomalies(obs_directory, save_directory, start_range='1999-01-01',
 
             varObs = np.zeros((len(d_daily),climSmooth.shape[1],climSmooth.shape[2]))
 
-            lats = tmin.y.values
-            lons = tmin.x.values
+            lats = tmin.lat[:,0].values
+            lons = tmin.lon[0,:].values
 
         varObs[num,:,:] = avg_temp
 
