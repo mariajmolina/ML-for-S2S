@@ -798,7 +798,7 @@ def era5_variable_regrid(obs_directory, variable, start_range='1999-01-01', end_
         var = "TTRC"; filename = "e5.oper.fc.sfc.accumu.128_209_ttrc.ll025sc"; constant=1/86400
         
     if variable == "tp":
-        var = "TP"; filename = "e5.oper.fc.sfc.accumu.128_142_tp.ll025sc"; constant=1
+        var = "TP"; filename = "e5.oper.fc.sfc.accumu.128_142_tp.ll025sc"; constant=1000 # convert m to mm
         
     for num, t in enumerate(d_daily):
         
@@ -917,10 +917,12 @@ def era5_temp_climatology(obs_directory, save_directory, start='1999-01-01', end
     for num, t in enumerate(td):
 
         tmax = xr.open_dataset(
-            f"{obs_directory}era5_tmax_regrid/e5.oper.fc.sfc.minmax.128_201_mx2t.ll025sc.{t.strftime('%Y%m%d')}.nc")['MX2T']
+            f"{obs_directory}era5_mx2t_regrid/e5.oper.fc.sfc.minmax.128_201_mx2t.ll025sc.{t.strftime('%Y%m%d')}.nc"
+        )['MX2T'] - 273.15 # convert K to C
 
         tmin = xr.open_dataset(
-            f"{obs_directory}era5_tmin_regrid/e5.oper.fc.sfc.minmax.128_202_mn2t.ll025sc.{t.strftime('%Y%m%d')}.nc")['MN2T']
+            f"{obs_directory}era5_mn2t_regrid/e5.oper.fc.sfc.minmax.128_202_mn2t.ll025sc.{t.strftime('%Y%m%d')}.nc"
+        )['MN2T'] - 273.15 # convert K to C
 
         avg_temp = (tmin + tmax) / 2
 
@@ -930,8 +932,8 @@ def era5_temp_climatology(obs_directory, save_directory, start='1999-01-01', end
 
             clim = np.zeros((td.year.unique().shape[0],365,avg_temp.shape[0],avg_temp.shape[1]))
 
-            lats = ds_.lat[:,0].values
-            lons = ds_.lon[0,:].values
+            lats = tmax.lat[:,0].values
+            lons = tmax.lon[0,:].values
 
         clim[yr,doy,:,:] = avg_temp
 
@@ -1152,10 +1154,12 @@ def era5_temp_anomalies(obs_directory, save_directory, start_range='1999-01-01',
     for num, t in enumerate(d_daily):
 
         tmax = xr.open_dataset(
-            f"{obs_directory}era5_tmax_regrid/e5.oper.fc.sfc.minmax.128_201_mx2t.ll025sc.{t.strftime('%Y%m%d')}.nc")['MX2T']
+            f"{obs_directory}era5_mx2t_regrid/e5.oper.fc.sfc.minmax.128_201_mx2t.ll025sc.{t.strftime('%Y%m%d')}.nc"
+        )['MX2T'] - 273.15 # convert K to C
         
         tmin = xr.open_dataset(
-            f"{obs_directory}era5_tmin_regrid/e5.oper.fc.sfc.minmax.128_202_mn2t.ll025sc.{t.strftime('%Y%m%d')}.nc")['MN2T']
+            f"{obs_directory}era5_mn2t_regrid/e5.oper.fc.sfc.minmax.128_202_mn2t.ll025sc.{t.strftime('%Y%m%d')}.nc"
+        )['MN2T'] - 273.15 # convert K to C
         
         avg_temp = (tmin + tmax) / 2
 
