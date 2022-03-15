@@ -161,3 +161,22 @@ def cesm_climo_wrs(ds_cesm, rolling_days=5, variable='zg_500'):
     
     return step_4
 
+
+def compute_categories(data_, lower, upper, lead0, lead1, mask_):
+    """
+    Args:
+        data_ (array): data to project terciles onto
+        lower (array): lower tercile
+        upper (array): upper tercile
+        lead0 (int): initial lead time
+        lead1 (int): final lead time
+        mask_ (array): land mask
+    """
+    lower = lower.sel(lead=slice(lead0,lead1))
+    upper = upper.sel(lead=slice(lead0,lead1))
+    data_ = data_.sel(lead=slice(lead0,lead1))
+    
+    data_lower = xr.where((data_<=lower),-1.0,0.0)
+    data_upper = xr.where((data_>=upper), 1.0,0.0)
+    
+    return (data_lower + data_upper).transpose('lead','time','lat','lon').where(mask==1.0)
