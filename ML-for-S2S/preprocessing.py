@@ -784,6 +784,9 @@ def era5_variable_regrid(obs_directory, variable, start_range='1999-01-01', end_
         
     if variable == "mn2t":
         var = "MN2T"; filename = "e5.oper.fc.sfc.minmax.128_202_mn2t.ll025sc"; constant=1
+        
+    if variable == "sstk":
+        var = "SSTK"; filename = "e5.oper.an.sfc.128_034_sstk.ll025sc"; constant=1
     
     if variable == "ua200" or variable == "ua850":
         var = "U"; filename = "e5.oper.an.pl.128_131_u.ll025uv"; constant=1
@@ -797,13 +800,22 @@ def era5_variable_regrid(obs_directory, variable, start_range='1999-01-01', end_
     if variable == "ttrc":
         var = "TTRC"; filename = "e5.oper.fc.sfc.accumu.128_209_ttrc.ll025sc"; constant=1/86400
         
+    if variable == "ttr":
+        var = "TTR"; filename = "e5.oper.fc.sfc.accumu.128_179_ttr.ll025sc"; constant=1/86400
+        
     if variable == "tp":
         var = "TP"; filename = "e5.oper.fc.sfc.accumu.128_142_tp.ll025sc"; constant=1000 # convert m to mm
         
     for num, t in enumerate(d_daily):
         
         ds_ = xr.open_dataset(f"{obs_directory}/era5_{variable}/{filename}.{t.strftime('%Y%m%d')}.nc")
-        ds_ = regrid_mask(ds_ * constant, var)
+        
+        if variable != 'sstk':
+            ds_ = regrid_mask(ds_ * constant, var)
+            
+        if variable == 'sstk':
+            ds_ = regrid_mask(ds_ - 273.15, var)
+            
         ds_.to_dataset(
             name=var).to_netcdf(f"{obs_directory}/era5_{variable}_regrid/{filename}.{t.strftime('%Y%m%d')}.nc")
 
@@ -834,8 +846,14 @@ def era5_variable_climatology(obs_directory, save_directory, variable, start='19
     if variable == "ttrc":
         var = "TTRC"; filename = "e5.oper.fc.sfc.accumu.128_209_ttrc.ll025sc"
         
+    if variable == "ttr":
+        var = "TTR"; filename = "e5.oper.fc.sfc.accumu.128_179_ttr.ll025sc"
+        
     if variable == "tp":
         var = "TP"; filename = "e5.oper.fc.sfc.accumu.128_142_tp.ll025sc"
+        
+    if variable == "sstk":
+        var = "SSTK"; filename = "e5.oper.an.sfc.128_034_sstk.ll025sc"
         
     td = pd.date_range(start=start, end=end, freq='D')
     td = td[~((td.day==29)&(td.month==2))]
@@ -994,8 +1012,14 @@ def era5_variable_anomalies(obs_directory, save_directory, variable,
     if variable == "ttrc":
         var = "TTRC"; filename = "e5.oper.fc.sfc.accumu.128_209_ttrc.ll025sc"
         
+    if variable == "ttr":
+        var = "TTR"; filename = "e5.oper.fc.sfc.accumu.128_179_ttr.ll025sc"
+        
     if variable == "tp":
         var = "TP"; filename = "e5.oper.fc.sfc.accumu.128_142_tp.ll025sc"
+        
+    if variable == "sstk":
+        var = "SSTK"; filename = "e5.oper.an.sfc.128_034_sstk.ll025sc"
         
     # -- open and smooth obs climo
 
