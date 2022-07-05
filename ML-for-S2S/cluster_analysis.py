@@ -1,22 +1,37 @@
 import numpy as np
 
 
+def grab_cluster(ds_, kmeans, pca=None, use_pca=False):
+    """
+    Return nearest k-means cluster for each ensemble member.
+
+    Args:
+        ds_: preprocessed numpy array of z500.
+        kmeans: trained k-means object.
+    """
+    if use_pca:
+        ds_train = pca.transform(ds_)
+    d_ = kmeans.predict(ds_train)
+
+    return d_
+
+
 def single_clusters(ds_, kmeans, pca=None, use_pca=False):
     """
     Return nearest k-means cluster for each ensemble member.
-    
+
     Args:
         ds_: preprocessed array containing ensemble members.
         kmeans: trained k-means object.
     """
-    d00_ = np.zeros((1,544,43))
+    d00_ = np.zeros((1, 544, 43))
 
-    for nl in range(0,43):
+    for nl in range(0, 43):
 
         ds_train = ds_.sel(lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d00_[0,:,nl] = kmeans.predict(ds_train)
+        d00_[0, :, nl] = kmeans.predict(ds_train)
 
     return d00_
 
@@ -24,81 +39,81 @@ def single_clusters(ds_, kmeans, pca=None, use_pca=False):
 def ensemble_clusters(ds_, kmeans, pca=None, use_pca=False):
     """
     Return nearest k-means cluster for each ensemble member.
-    
+
     Args:
         ds_: preprocessed array containing ensemble members.
         kmeans: trained k-means object.
     """
-    d00_ = np.zeros((544,43))
-    d01_ = np.zeros((544,43))
-    d02_ = np.zeros((544,43))
-    d03_ = np.zeros((544,43))
-    d04_ = np.zeros((544,43))
-    d05_ = np.zeros((544,43))
-    d06_ = np.zeros((544,43))
-    d07_ = np.zeros((544,43))
-    d08_ = np.zeros((544,43))
-    d09_ = np.zeros((544,43))
-    d10_ = np.zeros((544,43))
+    d00_ = np.zeros((544, 43))
+    d01_ = np.zeros((544, 43))
+    d02_ = np.zeros((544, 43))
+    d03_ = np.zeros((544, 43))
+    d04_ = np.zeros((544, 43))
+    d05_ = np.zeros((544, 43))
+    d06_ = np.zeros((544, 43))
+    d07_ = np.zeros((544, 43))
+    d08_ = np.zeros((544, 43))
+    d09_ = np.zeros((544, 43))
+    d10_ = np.zeros((544, 43))
 
-    for nl in range(0,43):
+    for nl in range(0, 43):
 
-        ds_train = ds_.sel(ensemble= 0, lead=nl).values
+        ds_train = ds_.sel(ensemble=0, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d00_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 1, lead=nl).values
+        d00_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=1, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d01_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 2, lead=nl).values
+        d01_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=2, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d02_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 3, lead=nl).values
+        d02_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=3, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d03_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 4, lead=nl).values
+        d03_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=4, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d04_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 5, lead=nl).values
+        d04_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=5, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d05_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 6, lead=nl).values
+        d05_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=6, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d06_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 7, lead=nl).values
+        d06_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=7, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d07_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 8, lead=nl).values
+        d07_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=8, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d08_[:,nl] = kmeans.predict(ds_train)
-        
-        ds_train = ds_.sel(ensemble= 9, lead=nl).values
+        d08_[:, nl] = kmeans.predict(ds_train)
+
+        ds_train = ds_.sel(ensemble=9, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d09_[:,nl] = kmeans.predict(ds_train)
-        
+        d09_[:, nl] = kmeans.predict(ds_train)
+
         ds_train = ds_.sel(ensemble=10, lead=nl).values
         if use_pca:
             ds_train = pca.transform(ds_train)
-        d10_[:,nl] = kmeans.predict(ds_train)
+        d10_[:, nl] = kmeans.predict(ds_train)
 
-    return np.stack([d00_,d01_,d02_,d03_,d04_,d05_,d06_,d07_,d08_,d09_,d10_])
+    return np.stack([d00_, d01_, d02_, d03_, d04_, d05_, d06_, d07_, d08_, d09_, d10_])
 
 
 def composite_clusters(ds_, kmeans, pca=None, use_pca=False):
