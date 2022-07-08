@@ -1,5 +1,11 @@
 # ML-for-S2S
-Subseasonal-to-Seasonal (S2S) prediction using machine learning
+Subseasonal-to-Seasonal (S2S) prediction and predictability research using machine learning.
+
+------------
+
+Related papers:
+
+Molina, M. J., J. H. Richter, A. A. Glanville, K. Dagon, J. Berner, A. Hu, and G. A. Meehl (Submitted). Subseasonal Representation and Predictability of North American Weather Regimes using Machine Learning. Artificial Intelligence for the Earth Systems.
 
 ------------
 
