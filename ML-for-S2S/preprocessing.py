@@ -419,11 +419,13 @@ def cesm2_hindcast_climatology(filelist, variable, save=False, author=None, pare
         
         if len(all_ensembles) > 1:
             
-            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+            data_assemble.to_netcdf(
+                f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
             
         if len(all_ensembles) == 1:
             
-            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
+            data_assemble.to_netcdf(
+                f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
 
             
 def cesm2_total_ensemble(filelist):
@@ -502,7 +504,8 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
         import warnings
         warnings.warn("Using climatology computed from 11 ensemble members!")
     
-    clima = xr.open_dataset(f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_11members_s2s_data.nc') # open climo
+    clima = xr.open_dataset(
+        f'{parent_directory}CESM2/{variable.lower()}_clim_cesm2cam6v2_11members_s2s_data.nc') # open climo
     
     climCyclical = xr.concat([clima['clim'], clima['clim'], clima['clim']], dim='time') # stack 3x's time for smoothing
     
@@ -621,11 +624,13 @@ def cesm2_hindcast_anomalies(filelist, variable, parent_directory, save=False, a
         
         if len(all_ensembles) > 1:
             
-            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
+            data_assemble.to_netcdf(
+                f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(len(all_ensembles))}members_s2s_data.nc')
             
         if len(all_ensembles) == 1:
             
-            data_assemble.to_netcdf(f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
+            data_assemble.to_netcdf(
+                f'{parent_directory}CESM2/{variable.lower()}_anom_cesm2cam6v2_{str(all_ensembles[0])}member_s2s_data.nc')
 
             
 def gpcp_hindcast_anomalies(parent_directory, variable='precip',
@@ -671,11 +676,11 @@ def gpcp_hindcast_anomalies(parent_directory, variable='precip',
 
     climCyclicalObs = xr.concat([climSmooth, climSmooth, climSmooth], dim='time')
 
-    climFinal = np.zeros((climSmooth.shape[0],45,climSmooth.shape[1],climSmooth.shape[2]))
+    climFinal = np.zeros((climSmooth.shape[0],46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for i in range(365):
 
-        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+45,:,:]
+        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+46,:,:]
 
     # -- create time arrays for subsequent indexing
 
@@ -722,15 +727,16 @@ def gpcp_hindcast_anomalies(parent_directory, variable='precip',
 
     # -- add lead time to daily obs
 
-    varFinal = np.zeros((int(len(d_mon)), 45, 180, 360))
+    varFinal = np.zeros((int(len(d_mon)), 46, 180, 360))
 
     for num, i in enumerate(d_mon):
 
-        varFinal[num,:,:,:] = varObs[int(np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+45,:,:]
+        varFinal[num,:,:,:] = varObs[int(
+            np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+46,:,:]
 
     # -- compute obs anomalies
 
-    anom = np.zeros((int(len(d_mon)), 45, 180, 360))
+    anom = np.zeros((int(len(d_mon)), 46, 180, 360))
 
     for num, i in enumerate(d_mon):
 
@@ -817,7 +823,8 @@ def era5_variable_regrid(obs_directory, variable, start_range='1999-01-01', end_
             ds_ = regrid_mask(ds_ - 273.15, var)
             
         ds_.to_dataset(
-            name=var).to_netcdf(f"{obs_directory}/era5_{variable}_regrid/{filename}.{t.strftime('%Y%m%d')}.nc")
+            name=var).to_netcdf(
+            f"{obs_directory}/era5_{variable}_regrid/{filename}.{t.strftime('%Y%m%d')}.nc")
 
 
 def era5_variable_climatology(obs_directory, save_directory, variable, start='1999-01-01', end='2020-12-31', 
@@ -1042,11 +1049,11 @@ def era5_variable_anomalies(obs_directory, save_directory, variable,
 
     climCyclicalObs = xr.concat([climSmooth, climSmooth, climSmooth], dim='time')
 
-    climFinal = np.zeros((climSmooth.shape[0],45,climSmooth.shape[1],climSmooth.shape[2]))
+    climFinal = np.zeros((climSmooth.shape[0],46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for i in range(365):
 
-        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+45,:,:]
+        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+46,:,:]
 
     # -- create time arrays for subsequent indexing
 
@@ -1077,15 +1084,16 @@ def era5_variable_anomalies(obs_directory, save_directory, variable,
 
     # -- add lead time to daily obs
 
-    varFinal = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+    varFinal = np.zeros((int(len(d_mon)),46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for num, i in enumerate(d_mon):
 
-        varFinal[num,:,:,:] = varObs[int(np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+45,:,:]
+        varFinal[num,:,:,:] = varObs[int(
+            np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+46,:,:]
 
     # -- compute obs anomalies
 
-    anom = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+    anom = np.zeros((int(len(d_mon)),46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for num, i in enumerate(d_mon):
 
@@ -1156,11 +1164,11 @@ def era5_temp_anomalies(obs_directory, save_directory, start_range='1999-01-01',
 
     climCyclicalObs = xr.concat([climSmooth, climSmooth, climSmooth], dim='time')
 
-    climFinal = np.zeros((climSmooth.shape[0],45,climSmooth.shape[1],climSmooth.shape[2]))
+    climFinal = np.zeros((climSmooth.shape[0],46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for i in range(365):
 
-        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+45,:,:]
+        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+46,:,:]
 
     # -- create time arrays for subsequent indexing
 
@@ -1198,15 +1206,16 @@ def era5_temp_anomalies(obs_directory, save_directory, start_range='1999-01-01',
 
     # -- add lead time to daily obs
 
-    varFinal = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+    varFinal = np.zeros((int(len(d_mon)),46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for num, i in enumerate(d_mon):
 
-        varFinal[num,:,:,:] = varObs[int(np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+45,:,:]
+        varFinal[num,:,:,:] = varObs[int(
+            np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+46,:,:]
 
     # -- compute obs anomalies
 
-    anom = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+    anom = np.zeros((int(len(d_mon)),46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for num, i in enumerate(d_mon):
 
@@ -1468,11 +1477,11 @@ def ncpc_temp_anomalies(obs_directory, save_directory, start_range='1999-01-01',
 
     climCyclicalObs = xr.concat([climSmooth, climSmooth, climSmooth], dim='time')
 
-    climFinal = np.zeros((climSmooth.shape[0], 45, climSmooth.shape[1], climSmooth.shape[2]))
+    climFinal = np.zeros((climSmooth.shape[0], 46, climSmooth.shape[1], climSmooth.shape[2]))
 
     for i in range(365):
 
-        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+45,:,:]
+        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+46,:,:]
 
     # -- create time arrays for subsequent indexing
 
@@ -1518,15 +1527,16 @@ def ncpc_temp_anomalies(obs_directory, save_directory, start_range='1999-01-01',
 
     # -- add lead time to daily obs
 
-    varFinal = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+    varFinal = np.zeros((int(len(d_mon)),46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for num, i in enumerate(d_mon):
 
-        varFinal[num,:,:,:] = varObs[int(np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+45,:,:]
+        varFinal[num,:,:,:] = varObs[int(
+            np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+46,:,:]
 
     # -- compute obs anomalies
 
-    anom = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+    anom = np.zeros((int(len(d_mon)),46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for num, i in enumerate(d_mon):
 
@@ -1597,11 +1607,11 @@ def ncpc_precip_anomalies(obs_directory, save_directory, start_range='1999-01-01
 
     climCyclicalObs = xr.concat([climSmooth, climSmooth, climSmooth], dim='time')
 
-    climFinal = np.zeros((climSmooth.shape[0], 45, climSmooth.shape[1], climSmooth.shape[2]))
+    climFinal = np.zeros((climSmooth.shape[0], 46, climSmooth.shape[1], climSmooth.shape[2]))
 
     for i in range(365):
 
-        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+45,:,:]
+        climFinal[i,:,:,:] = climCyclicalObs[365+i:365+i+46,:,:]
 
     # -- create time arrays for subsequent indexing
 
@@ -1642,15 +1652,16 @@ def ncpc_precip_anomalies(obs_directory, save_directory, start_range='1999-01-01
 
     # -- add lead time to daily obs
 
-    varFinal = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+    varFinal = np.zeros((int(len(d_mon)),46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for num, i in enumerate(d_mon):
 
-        varFinal[num,:,:,:] = varObs[int(np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+45,:,:]
+        varFinal[num,:,:,:] = varObs[int(
+            np.argwhere(d_dly==np.datetime64(i))[0]):int(np.argwhere(d_dly==np.datetime64(i))[0])+46,:,:]
 
     # -- compute obs anomalies
 
-    anom = np.zeros((int(len(d_mon)),45,climSmooth.shape[1],climSmooth.shape[2]))
+    anom = np.zeros((int(len(d_mon)),46,climSmooth.shape[1],climSmooth.shape[2]))
 
     for num, i in enumerate(d_mon):
 

@@ -1,4 +1,5 @@
 import numpy as np
+import datetime
 import pandas as pd
 import xarray as xr
 from preprocessing import cesm2_filelist
@@ -66,7 +67,7 @@ def cesm_z500(ensemble_str):
     for i in range(len(filelist00)):
 
         thetime = pd.to_datetime(
-            datetime.strptime(
+            datetime.datetime.strptime(
                 filelist00[i][filelist00[i].find(char_1)+12:filelist00[i].find(char_2)], 
                 '%d%b%Y'))
 
@@ -157,7 +158,7 @@ def cesm_climo_wrs(ds_cesm, rolling_days=5, variable='zg_500'):
     step_3 = step_2.groupby("time.dayofyear").mean(skipna=True)
 
     # anom
-    step_4 = step_2.groupby("time.dayofyear") - step_3
+    step_4 = step_1.groupby("time.dayofyear") - step_3
     
     return step_4
 
