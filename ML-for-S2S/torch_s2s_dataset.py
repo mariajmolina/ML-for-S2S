@@ -63,6 +63,10 @@ class S2SDataset(Dataset):
         image = self.img_train
         label = self.img_label
         
+        if self.variable_ == 'prsfc':
+            
+            image = image * 84600
+        
         if self.norm == 'zscore':
             
             image, label = self.zscore_compute(image), self.zscore_compute(label)
@@ -261,11 +265,20 @@ class S2SDataset(Dataset):
 
         range_y = np.arange(-90., 59.+1, np.random.choice([1,2]))
         range_x = np.arange(0., 328.+1, np.random.choice([1,2,3,4,5]))
+        
+        #range_y = np.arange(-90., 59.-33+1, np.random.choice([1,2]))
+        #range_x = np.arange(0., 328.-33+1, np.random.choice([1,2,3,4,5]))
 
-        ax = np.random.choice(range_x, replace=False)
-        by = np.random.choice(range_y, replace=False)
+        #ax = np.random.choice(range_x, replace=False)
+        #by = np.random.choice(range_y, replace=False)
+        
+        ax = 250.
+        by = 10.
         
         ds1 = ds1.sel(y=slice(by, by + 31), x=slice(ax, ax + 31))
         ds2 = ds2.sel(y=slice(by, by + 31), x=slice(ax, ax + 31))
+        
+        #ds1 = ds1.sel(y=slice(by, by + 63), x=slice(ax, ax + 63))
+        #ds2 = ds2.sel(y=slice(by, by + 63), x=slice(ax, ax + 63))
         
         return ds1, ds2
