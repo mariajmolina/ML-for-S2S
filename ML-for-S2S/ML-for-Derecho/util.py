@@ -3,7 +3,6 @@ import itertools
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pylab import *
 import torch
 from torch.autograd import Variable
 
