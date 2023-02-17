@@ -146,6 +146,11 @@ class S2SDataset(Dataset):
             img = xr.concat([self.coord_data['top'],
                              self.coord_data['lon'],
                              self.coord_data['cesm']],dim='feature')
+            
+        # features including terrain and lon
+        if not self.feat_topo and not self.feat_lats and not self.feat_lons:
+            # input features
+            img = xr.concat([self.coord_data['cesm']],dim='feature') 
         
         # label
         lbl = xr.concat([self.coord_data['era5']],dim='feature')
