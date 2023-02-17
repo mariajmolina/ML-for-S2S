@@ -331,7 +331,7 @@ class S2SDataset(Dataset):
             
         # coordinates (terrain and lat/lon features)
         self.coord_data = xr.open_dataset(
-            '/glade/scratch/molina/s2s/CESM2_OBS/ml_coords.nc').expand_dims('sample')
+            self.homedir+'/ml_coords.nc').expand_dims('sample')
         
         # open files using lists and indices
         self.img_train = xr.open_mfdataset(self.list_of_cesm[indx], 
