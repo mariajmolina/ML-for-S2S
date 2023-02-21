@@ -1,0 +1,21 @@
+name: s2s
+channels:
+  - conda-forge
+dependencies:
+  - optuna
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - matplotlib
+  - xarray
+  - netcdf4
+  - Pillow
+  - tqdm
+  - pandas
+  - scikit-learn
+  - pip:
+    - tensorflow
+    - segmentation-models-pytorch
+    - hagelslag
+    - psutil
