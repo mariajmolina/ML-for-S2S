@@ -147,7 +147,7 @@ class S2SDataset(Dataset):
                              self.coord_data['lon'],
                              self.coord_data['cesm']],dim='feature')
             
-        # features including terrain and lon
+        # no extra features
         if not self.feat_topo and not self.feat_lats and not self.feat_lons:
             # input features
             img = xr.concat([self.coord_data['cesm']],dim='feature') 

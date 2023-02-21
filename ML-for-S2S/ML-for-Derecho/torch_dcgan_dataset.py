@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-class S2SDataset(Dataset):
+class GANS2SDataset(Dataset):
     
     """
     Class instantiation for file lists of cesm/era5 train, validate, and test data.
@@ -26,9 +26,11 @@ class S2SDataset(Dataset):
         feat_topo (boolean): use terrian heights (era5) as feature. Defaults True.
         feat_lats (boolean): use latitudes as feature. Defaults True.
         feat_lons (boolean): use longitudes as feature. Defaults True.
+        use_era5 (boolean): training with era5 files (i.e., real). Defaults to True.
+        use_cesm (boolean): training with cesm files (i.e., fake). Defaults to True.
         startdt (str): datetime start. Defaults to 1999-02-01.
         enddt (str): datetime end. Defaults to 2021-12-31.
-        homedir (str): home directory. Defaults to /glade/gust/scratch/molina/.
+        homedir (str): home directory. Defaults to /glade/scratch/molina/.
         
     Returns:
         list of cesm and era5 files for train/val/test sets.
@@ -37,7 +39,7 @@ class S2SDataset(Dataset):
     
     def __init__(self, week, variable, norm='zscore', region='fixed',
                  minv=None, maxv=None, mnv=None, stdv=None, lon0=None, lat0=None, dxdy=32,
-                 feat_topo=True, feat_lats=True, feat_lons=True, 
+                 feat_topo=True, feat_lats=True, feat_lons=True, use_era5=True, use_cesm=True,
                  startdt='1999-02-01', enddt='2021-12-31', homedir='/glade/gust/scratch/molina/'):
         
         self.week = week
@@ -77,6 +79,9 @@ class S2SDataset(Dataset):
         self.feat_topo=feat_topo
         self.feat_lats=feat_lats
         self.feat_lons=feat_lons
+        
+        self.use_era5=use_era5
+        self.use_cesm=use_cesm
             
         
     def __len__(self):
@@ -92,74 +97,70 @@ class S2SDataset(Dataset):
         self.create_files(idx)
         
         image = self.img_train
-        label = self.img_label
-        
-        # need to convert precip cesm file
-        if self.variable_ == 'prsfc':
-            image = image * 84600 # convert kg/m2/s to mm/day
         
         # normalization options applied here
         if self.norm == 'zscore':
-            image, label = self.zscore_compute(image), self.zscore_compute(label)
+            image = self.zscore_compute(image)
         if self.norm == 'minmax':
-            image, label = self.minmax_compute(image), self.minmax_compute(label)
+            image = self.minmax_compute(image)
         if self.norm == 'negone':
-            image, label = self.negone_compute(image), self.negone_compute(label)
+            image = self.negone_compute(image)
         
         # add the spatial variable to coordinate data
-        self.coord_data["cesm"]=(['sample','x','y'], 
+        self.coord_data["imgs"]=(['sample','x','y'], 
                                  image.transpose('sample','lon','lat').values)
-        self.coord_data["era5"]=(['sample','x','y'], 
-                                 label.transpose('sample','x','y').values)
         
         # features including terrain, lats, and lons
         if self.feat_topo and self.feat_lats and self.feat_lons:
+            
             # input features
             img = xr.concat([self.coord_data['top'],
                              self.coord_data['lat'],
                              self.coord_data['lon'],
-                             self.coord_data['cesm']],dim='feature')
+                             self.coord_data['imgs']],dim='feature')
             
         # features including terrain
         if self.feat_topo and not self.feat_lats and not self.feat_lons:
+            
             # input features
             img = xr.concat([self.coord_data['top'],
-                             self.coord_data['cesm']],dim='feature')
+                             self.coord_data['imgs']],dim='feature')
             
         # features including lats and lons
         if not self.feat_topo and self.feat_lats and self.feat_lons:
+            
             # input features
             img = xr.concat([self.coord_data['lat'],
                              self.coord_data['lon'],
-                             self.coord_data['cesm']],dim='feature')
+                             self.coord_data['imgs']],dim='feature')
             
         # features including terrain and lat
         if self.feat_topo and self.feat_lats and not self.feat_lons:
+            
             # input features
             img = xr.concat([self.coord_data['top'],
                              self.coord_data['lat'],
-                             self.coord_data['cesm']],dim='feature')
+                             self.coord_data['imgs']],dim='feature')
             
         # features including terrain and lon
         if self.feat_topo and not self.feat_lats and self.feat_lons:
+            
             # input features
             img = xr.concat([self.coord_data['top'],
                              self.coord_data['lon'],
-                             self.coord_data['cesm']],dim='feature')
+                             self.coord_data['imgs']],dim='feature')
             
         # no extra features
         if not self.feat_topo and not self.feat_lats and not self.feat_lons:
+            
             # input features
-            img = xr.concat([self.coord_data['cesm']],dim='feature') 
-        
-        # label
-        lbl = xr.concat([self.coord_data['era5']],dim='feature')
+            img = xr.concat([self.coord_data['imgs']],dim='feature') 
         
         # slice region
-        img, lbl = self.box_cutter(img, lbl)
+        img = self.box_cutter(img)
             
         return {'input': img.transpose('feature','sample','x','y').values, 
-                'label': lbl.transpose('feature','sample','x','y').values}
+                'label': self.img_label}
     
     
     def leadtime_help(self):
@@ -338,16 +339,76 @@ class S2SDataset(Dataset):
         self.coord_data = xr.open_dataset(
             self.homedir+'/ml_coords.nc').expand_dims('sample')
         
-        # open files using lists and indices
-        self.img_train = xr.open_mfdataset(self.list_of_cesm[indx], 
-                                           concat_dim='sample', 
-                                           combine='nested')[var]
-        self.img_label = xr.open_mfdataset(self.list_of_era5[indx], 
-                                           concat_dim='sample', 
-                                           combine='nested')[var]
+        # fake
+        if self.use_cesm and not self.use_era5:
+            
+            # select filenames
+            filename_help = self.list_of_cesm[indx]
+            self.img_label = np.array([0.])
+        
+        # real
+        if self.use_era5 and not self.use_cesm:
+            
+            # select filenames
+            filename_help = self.list_of_era5[indx]
+            self.img_label = np.array([1.])
+            
+        # real and fake
+        if self.use_era5 and self.use_cesm:
+            
+            # create big directory list for random selection of fake/real
+            tmp_array = np.vstack((np.array(self.list_of_cesm), 
+                                   np.array(self.list_of_era5)))
+            
+            # real or fake random selector
+            self.img_label = np.random.choice([0.,1.], size=1)
+            
+            # select filenames
+            filename_help = tmp_array[self.img_label.astype(int), indx].tolist()
+            
+        if self.variable_ != 'prsfc':
+            
+            try:
+            
+                # open files using lists and indices
+                self.img_train = xr.open_mfdataset(
+                    filename_help, 
+                    concat_dim='sample', 
+                    combine='nested')[var].rename({'x': 'lon','y': 'lat'})
+                
+            except ValueError:
+                
+                # open files using lists and indices
+                self.img_train = xr.open_mfdataset(
+                    filename_help, 
+                    concat_dim='sample', 
+                    combine='nested')[var]
+                
+            
+        # need to convert precip cesm file
+        if self.variable_ == 'prsfc':
+            
+            # hlpr constant (leave era5 as 1; convert cesm files only)
+            hlpr = np.where(self.img_label==1., 1., 84600.)
+            
+            try:
+            
+                # open files using lists and indices
+                self.img_train = xr.open_mfdataset(
+                    filename_help, 
+                    concat_dim='sample', 
+                    combine='nested')[var].rename({'x': 'lon','y': 'lat'}) * hlpr
+                
+            except ValueError:
+                
+                # open files using lists and indices
+                self.img_train = xr.open_mfdataset(
+                    filename_help, 
+                    concat_dim='sample', 
+                    combine='nested')[var] * hlpr
         
         
-    def box_cutter(self, ds1, ds2):
+    def box_cutter(self, ds1):
         """
         help slicing region
         """
@@ -369,6 +430,5 @@ class S2SDataset(Dataset):
         
         # slicing occurs here using data above
         ds1 = ds1.sel(y=slice(by, by + self.dxdy), x=slice(ax, ax + self.dxdy))
-        ds2 = ds2.sel(y=slice(by, by + self.dxdy), x=slice(ax, ax + self.dxdy))
         
-        return ds1, ds2
+        return ds1
