@@ -55,10 +55,10 @@ trainer:
     train_batch_size: 64
     valid_batch_size: 64
     batches_per_epoch: 250
-    adv_loss: 'hinge'
+    adv_loss: 'wgan-gp'
     lambda_gp: 10
     train_gen_every: 1
-    train_disc_every: 1
+    train_disc_every: 10
     threshold: 0.5
     mask_penalty: 0.5
     regression_penalty: 0.2
