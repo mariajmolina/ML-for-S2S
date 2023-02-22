@@ -21,24 +21,24 @@ import torch_s2s_dataset_gust
 parser = argparse.ArgumentParser(description='Training UNET for bias-correcting a field (tas2m/prsfc) from CESM.')
 
 parser.add_argument("--variable",choices=["tas2m", "prsfc"],required=True,type=str, help="Variable to be corrected.")
-parser.add_argument("--week",choices=["1", "2", "3","4","5","6"],required=True,type=str, help="Week (lead time) predicted.")
+parser.add_argument("--week",choices=[1, 2, 3, 4, 5, 6],required=True,type=int, help="Week (lead time) predicted.")
 parser.add_argument("--data_dir",required=False,default='/glade/gust/scratch/molina/', type=str, help="Data storage location.")
 parser.add_argument("--dates_training",required=False,default="1999-02-01/2015-12-31", type=str, help="Initial and final dates of training subset with the format '1999-02-01/2015-12-31'")
 parser.add_argument("--dates_val",required=False,default="2016-01-01/2017-12-31", type=str, help="Initial and final dates of validation subset with the format '2016-01-01/2017-12-31'")
 parser.add_argument("--dates_test",required=False,default="2018-01-01/2020-12-31", type=str, help="Initial and final dates of test subset with the format '2018-01-01/2020-12-31'")
 parser.add_argument("--region_type",choices=["fixed", "random"],default='fixed',required=False, type=str,help="Region method used. Defaults 'fixed' uses one region. 'random' changes regions.")
 
-parser.add_argument("--lon0",required=True, type=str, help="Bottom left corner of 'fixed' region (0 to 360).")
-parser.add_argument("--lat0",required=True, type=str, help="Bottom left corner of 'fixed' region (-90 to 90).")
-parser.add_argument("--dxdy",required=False, type=str, default="32", help="number of grid cells for 'fixed' or 'random' region. Defaults to 32.")
+parser.add_argument("--lon0",required=True, type=float, help="Bottom left corner of 'fixed' region (0 to 360).")
+parser.add_argument("--lat0",required=True, type=float, help="Bottom left corner of 'fixed' region (-90 to 90).")
+parser.add_argument("--dxdy",required=False, type=int, default=32, help="number of grid cells for 'fixed' or 'random' region. Defaults to 32.")
 
 
 #### HYPERPARAMETERS ####
 
-parser.add_argument("--k1",required=False, type=str, default="3", help="Kernel size 1")
-parser.add_argument("--p1",required=False, type=str, default="1", help="Padding size 1")
-parser.add_argument("--k2",required=False, type=str, default="3", help="Kernel size 2")
-parser.add_argument("--p2",required=False, type=str, default="1", help="Padding size 2")
+parser.add_argument("--k1",required=False, type=int, default=3, help="Kernel size 1")
+parser.add_argument("--p1",required=False, type=int, default=1, help="Padding size 1")
+parser.add_argument("--k2",required=False, type=int, default=3, help="Kernel size 2")
+parser.add_argument("--p2",required=False, type=int, default=1, help="Padding size 2")
 
 parser.add_argument("--batch_size",required=False, type=str, default="64", help="Batch size.")
 parser.add_argument("--learning_rate",required=False, type=str, default="1e-3", help="Learning rate.")
@@ -47,16 +47,16 @@ parser.add_argument("--num_epochs",required=False, type=str, default="30", help=
 args=parser.parse_args()
 
 var = args.variable
-wks = int(args.week)
+wks = args.week
 data_dir = args.data_dir
 dates_train = args.dates_training.split('/')
 dates_val = args.dates_val.split('/')
 dates_test = args.dates_test.split('/')
 region_type = args.region_type
 
-lat0 = float(args.lat0)
-lon0 = float(args.lon0)
-dxdy = float(args.dxdy)
+lat0 = args.lat0
+lon0 = args.lon0
+dxdy = args.dxdy
 
 BATCH_SIZE = int(args.batch_size)
 LEARNING_RATE = float(args.learning_rate)
