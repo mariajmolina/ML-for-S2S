@@ -1,17 +1,17 @@
 log: True
-save_path: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip"
+save_path: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip_test"
 
 pbs:
-  jobs: 1
+  jobs: 10
   kernel: "ncar_pylib /glade/work/$USER/py37"
-  bash: ["source ~/.bashrc"]
+  bash: ["source ~/.bashrc; module load ncar_pylib"]
   batch:
     N: "ms-2250"
     l: ["select=1:ncpus=8:ngpus=1:mem=128GB", "walltime=12:00:00", "gpu_type=v100"]
     A: "NAML0001"
     q: "casper"
-    o: "out"
-    e: "out"
+    o: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip_test/out"
+    e: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip_test/out"
     
 optuna:
   storage: "s2s.db"
@@ -51,7 +51,7 @@ optuna:
       type: "categorical"
       settings:
         name: "training_loss"
-        choices: ["mae", "mse", "huber", "logcosh", "xtanh", "xsigmoid"]
+        choices: ["mae", "mse", "smooth", "logcosh", "xtanh", "xsigmoid"]
     model:name:
       type: "categorical"
       settings:

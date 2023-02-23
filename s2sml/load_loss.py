@@ -7,7 +7,7 @@ def load_loss(loss_type):
         return torch.nn.MSELoss()
     if loss_type == "mae":
         return torch.nn.L1Loss()
-    if loss_type == "huber":
+    if loss_type == "smooth":
         return torch.nn.SmoothL1Loss()
     if loss_type == "logcosh":
         return LogCoshLoss()

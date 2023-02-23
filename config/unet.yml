@@ -2,25 +2,25 @@ seed: 1000
 save_loc: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip"
 data:
     homedir: '/glade/scratch/molina/'
-    var: "prsfc"
+    var: "prsfc" # 
     wks: 2
 
-transforms:
-    training:
-        RandomVerticalFlip:
-            rate: 0.5
-        RandomHorizontalFlip: 
-            rate: 0.5
-        Normalize:
-            mode: 'sym'
-        ToTensor: True
-    validation:
-        Normalize:
-            mode: 'sym'
-        ToTensor: True
-    inference:
-        Normalize:
-            mode: 'sym'
+# transforms:
+#     training:
+#         RandomVerticalFlip:
+#             rate: 0.5
+#         RandomHorizontalFlip: 
+#             rate: 0.5
+#         Normalize:
+#             mode: 'sym'
+#         ToTensor: True
+#     validation:
+#         Normalize:
+#             mode: 'sym'
+#         ToTensor: True
+#     inference:
+#         Normalize:
+#             mode: 'sym'
                   
 model:
     name: "unet"
@@ -42,5 +42,5 @@ trainer:
     batches_per_epoch: 100
     lr_patience: 2
     stopping_patience: 5
-    loss: "xsigmoid"
+    loss: "smooth"
     metric: "valid_mae"

@@ -364,10 +364,11 @@ class Objective(BaseObjective):
                     f"Pruning trial {trial.number} due to CUDA memory overflow: {str(E)}."
                 )
                 raise optuna.TrialPruned()
-            elif "Xception" in str(E) or "VGG" in str(E) or "Given input size:" in str(E) or "downsampling!" in str(E):
+            elif "Xception" in str(E) or "VGG" in str(E) or "Given input size:" in str(E) or "downsampling" in str(E):
                 logging.warning(
                     f"Pruning trial {trial.number} due to encoder/encoder weights mismatch: {str(E)}."
                 )
+                raise optuna.TrialPruned()
             elif "reraise" in str(E):
                 logging.warning(
                     f"Pruning trial {trial.number} due to unspecified error: {str(E)}."
