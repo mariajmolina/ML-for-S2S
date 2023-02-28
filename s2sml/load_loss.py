@@ -15,7 +15,9 @@ def load_loss(loss_type):
         return XTanhLoss()
     if loss_type == "xsigmoid":
         return XSigmoidLoss()
-    
+    if loss_type == "huber":
+        # When delta is set to 1, this loss is equivalent to SmoothL1Loss. In general, this loss differs from SmoothL1Loss by a factor of delta (AKA beta in Smooth L1).
+        return torch.nn.HuberLoss(reduction='mean', delta=0.5)
 
 class LogCoshLoss(torch.nn.Module):
     def __init__(self):
