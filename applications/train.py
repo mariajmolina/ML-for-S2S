@@ -69,10 +69,10 @@ def train_one_epoch(model, dataloader, optimizer, criterion, nc, clip=1.0):
     for data in dataloader:
 
         img_noisy = data["input"].squeeze(dim=2)
-        img_noisy = img_noisy.to(device, dtype=torch.float)[:, :, :32, :32]
+        img_noisy = img_noisy.to(device, dtype=torch.float)
 
         img_label = data["label"].squeeze(dim=2)
-        img_label = img_label.to(device, dtype=torch.float)[:, :, :32, :32]
+        img_label = img_label.to(device, dtype=torch.float)
 
         optimizer.zero_grad()
         outputs = model(img_noisy)
@@ -119,10 +119,10 @@ def validate(model, dataloader, criterion, metrics, nc):
     for i, data in enumerate(dataloader):
 
         img_noisy = data["input"].squeeze(dim=2)
-        img_noisy = img_noisy.to(device, dtype=torch.float)[:, :, :32, :32]
+        img_noisy = img_noisy.to(device, dtype=torch.float)
 
         img_label = data["label"].squeeze(dim=2)
-        img_label = img_label.to(device, dtype=torch.float)[:, :, :32, :32]
+        img_label = img_label.to(device, dtype=torch.float)
 
         outputs = model(img_noisy)
 
@@ -171,19 +171,23 @@ def trainer(conf, trial=False, verbose=True):
     var = conf["data"]["var"]
     wks = conf["data"]["wks"]
     homedir = conf["data"]["homedir"]
-
+    dxdy = conf["data"]["dxdy"]
+    lat0 = conf["data"]["lat0"]
+    lon0 = conf["data"]["lon0"]
+    norm = conf["data"]["norm"]
+    
     train = torch_s2s_dataset.S2SDataset(
         week=wks,
         variable=var,
-        norm="minmax",
+        norm=norm,
         region="fixed",
         minv=None,
         maxv=None,
         mnv=None,
         stdv=None,
-        lon0=250.0,
-        lat0=30.0,
-        dxdy=32.0,
+        lon0=lon0,
+        lat0=lat0,
+        dxdy=dxdy,
         feat_topo=True,
         feat_lats=True,
         feat_lons=True,
@@ -191,18 +195,35 @@ def trainer(conf, trial=False, verbose=True):
         enddt="2015-12-31",
         homedir=homedir,
     )
+    
+    if not norm or norm == "None":
+        tmin = None
+        tmax = None
+        tmu = None
+        tsig = None
+    elif norm in ["minmax", "negone"]:
+        tmin = train.min_val
+        tmax = train.max_val
+        tmu = None
+        tsig = None
+    elif norm == "zscore":
+        tmin = None
+        tmax = None
+        tmu = train.mean_val
+        tsig = train.std_val
+    
     valid = torch_s2s_dataset.S2SDataset(
         week=wks,
         variable=var,
-        norm="minmax",
+        norm=norm,
         region="fixed",
-        minv=train.min_val,
-        maxv=train.max_val,
-        mnv=None,
-        stdv=None,
-        lon0=250.0,
-        lat0=30.0,
-        dxdy=32.0,
+        minv=tmin,
+        maxv=tmax,
+        mnv=tmu,
+        stdv=tsig,
+        lon0=lon0,
+        lat0=lat0,
+        dxdy=dxdy,
         feat_topo=True,
         feat_lats=True,
         feat_lons=True,
@@ -213,15 +234,15 @@ def trainer(conf, trial=False, verbose=True):
     tests = torch_s2s_dataset.S2SDataset(
         week=wks,
         variable=var,
-        norm="minmax",
+        norm=norm,
         region="fixed",
-        minv=train.min_val,
-        maxv=train.max_val,
-        mnv=None,
-        stdv=None,
-        lon0=250.0,
-        lat0=30.0,
-        dxdy=32.0,
+        minv=tmin,
+        maxv=tmax,
+        mnv=tmu,
+        stdv=tsig,
+        lon0=lon0,
+        lat0=lat0,
+        dxdy=dxdy,
         feat_topo=True,
         feat_lats=True,
         feat_lons=True,

@@ -35,6 +35,10 @@ optuna:
         name: "learning_rate"
         low: 1.0e-06
         high: 1.0e-02
+    data:norm:
+        type: "categorical"
+        name: "norm"
+        choices: ["None", "minmax", "negone", "zscore"]
     trainer:weight_decay:
       type: "loguniform"
       settings:

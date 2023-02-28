@@ -4,6 +4,10 @@ data:
     homedir: '/glade/scratch/molina/'
     var: "prsfc" # 
     wks: 2
+    dxdy: 31  # dxdy-1 
+    lon0: 250.0
+    lat0: 30
+    norm: "minmax"
 
 # transforms:
 #     training:
