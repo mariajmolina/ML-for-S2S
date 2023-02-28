@@ -1,0 +1,68 @@
+log: True
+save_path: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip_test"
+
+pbs:
+  jobs: 10
+  kernel: "ncar_pylib /glade/work/$USER/py37"
+  bash: ["source ~/.bashrc; module load ncar_pylib"]
+  batch:
+    N: "ms-2250"
+    l: ["select=1:ncpus=8:ngpus=1:mem=128GB", "walltime=12:00:00", "gpu_type=v100"]
+    A: "NAML0001"
+    q: "casper"
+    o: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip_test/out"
+    e: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip_test/out"
+    
+optuna:
+  storage: "s2s.db"
+  study_name: "vanilla"
+  storage_type: "sqlite"
+  objective: "/glade/work/schreck/repos/ML-for-S2S/applications/train.py"
+  direction: "minimize"
+  metric: "valid_mae"
+  n_trials: 1000
+  gpu: True
+  sampler:
+    type: "TPESampler"
+    n_startup_trials: 100
+  pruner:
+    type: "MedianPruner"
+    n_startup_trials: 50
+  parameters:
+    optimizer:learning_rate:
+      type: "loguniform"
+      settings:
+        name: "learning_rate"
+        low: 1.0e-06
+        high: 1.0e-02
+    data:norm:
+        type: "categorical"
+        name: "norm"
+        choices: ["None", "minmax", "negone", "zscore"]
+    trainer:weight_decay:
+      type: "loguniform"
+      settings:
+        name: "weight_decay"
+        low: 1.0e-12
+        high: 1.0e-03
+    trainer:train_batch_size:
+      type: "int"
+      settings:
+        name: "train_batch_size"
+        low: 4
+        high: 256
+    trainer:training_loss:
+      type: "categorical"
+      settings:
+        name: "training_loss"
+        choices: ["mae", "mse", "smooth", "logcosh", "xtanh", "xsigmoid"]
+    model:name:
+      type: "categorical"
+      settings:
+        name: "model_name"
+        choices: ["unet", "unet++", "manet", "linknet", "fpn", "pspnet", "pan", "deeplabv3", "deeplabv3+"]
+    model:encoder_name:
+      type: "categorical"
+      settings:
+        name: "encoder_name"
+        choices: ["resnet18", "resnet152", "densenet121", "xception", "efficientnet-b0", "mobilenet_v2", "dpn68", "vgg11"]

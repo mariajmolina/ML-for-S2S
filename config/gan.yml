@@ -1,0 +1,65 @@
+seed: 1000
+save_loc: "/glade/work/schreck/repos/ML-for-S2S/ML-for-S2S"
+
+transforms:
+    training:
+        RandomVerticalFlip:
+            rate: 0.5
+        RandomHorizontalFlip: 
+            rate: 0.5
+        Normalize:
+            mode: 'sym'
+        ToTensor: True
+    validation:
+        Normalize:
+            mode: 'sym'
+        ToTensor: True
+    inference:
+        Normalize:
+            mode: 'sym'
+                  
+generator:
+    name: "unet"
+    #encoder_name: "resnet18"
+    #encoder_weights: "imagenet"
+    decoder_attention_type: "scse"
+    in_channels: 5
+    classes: 1
+    #activation: "sigmoid"
+    
+discriminator:
+    name: "unet"
+    #encoder_name: "resnet18"
+    #encoder_weights: "imagenet"
+    decoder_attention_type: "scse"
+    in_channels: 1
+    activation: "sigmoid"
+    aux_params:
+        pooling: 'avg'
+        dropout: 0.2
+        activation: 'sigmoid'
+        classes: 1  
+    
+optimizer_G:
+    learning_rate: 0.001
+    b0: 0.5
+    b1: 0.999
+
+optimizer_D:
+    learning_rate: 0.0001
+    b0: 0.5
+    b1: 0.999
+    
+trainer:
+    epochs: 200
+    train_batch_size: 32
+    valid_batch_size: 32
+    batches_per_epoch: 100
+    adv_loss: 'wgan-gp'
+    lambda_gp: 10
+    train_gen_every: 1
+    train_disc_every: 9
+    threshold: 0.5
+    mask_penalty: 0.5
+    regression_penalty: 0.2
+    stopping_patience: 50

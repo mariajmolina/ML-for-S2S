@@ -1,0 +1,50 @@
+seed: 1000
+save_loc: "/glade/work/schreck/repos/ML-for-S2S/results/echo_precip"
+data:
+    homedir: '/glade/scratch/molina/'
+    var: "prsfc" # 
+    wks: 2
+    dxdy: 31  # dxdy-1 
+    lon0: 250.0
+    lat0: 30
+    norm: "minmax"
+
+# transforms:
+#     training:
+#         RandomVerticalFlip:
+#             rate: 0.5
+#         RandomHorizontalFlip: 
+#             rate: 0.5
+#         Normalize:
+#             mode: 'sym'
+#         ToTensor: True
+#     validation:
+#         Normalize:
+#             mode: 'sym'
+#         ToTensor: True
+#     inference:
+#         Normalize:
+#             mode: 'sym'
+                  
+model:
+    name: "unet"
+    encoder_name: "resnet18"
+    encoder_weights: "imagenet"
+    #decoder_attention_type: "scse"
+    in_channels: 4
+    classes: 1
+    activation: "sigmoid" 
+    
+optimizer:
+    learning_rate: 0.001
+    weight_decay: 0.0
+    
+trainer:
+    epochs: 1
+    train_batch_size: 32
+    valid_batch_size: 32
+    batches_per_epoch: 100
+    lr_patience: 2
+    stopping_patience: 5
+    loss: "smooth"
+    metric: "valid_mae"
